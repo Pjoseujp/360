@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Visualizador de lote 360°</title>
 <link rel="stylesheet" href="css/styles.css">
 </head>
@@ -13,13 +13,19 @@
   <!-- ===== Modo cliente ===== -->
   <div id="hud">
     <h1 id="hud-title">Visualizador de lote</h1>
-    <div id="hint">Arrastra para mirar · Rueda para acercar</div>
+    <button id="fullscreenBtn" title="Pantalla completa" aria-label="Pantalla completa">⛶</button>
   </div>
+
+  <svg id="popup-line-svg">
+    <line id="popup-line" x1="0" y1="0" x2="0" y2="0" />
+  </svg>
 
   <div id="popup">
     <button id="popup-close" aria-label="Cerrar">&times;</button>
-    <p id="popup-eyebrow">Lote</p>
-    <h2 id="popup-title"></h2>
+    <div id="popup-header">
+      <p id="popup-eyebrow">Lote</p>
+      <h2 id="popup-title"></h2>
+    </div>
     <p id="popup-area"></p>
     <p id="popup-desc"></p>
     <ul id="popup-caract"></ul>
@@ -40,11 +46,11 @@
 
     <hr>
 
-    <div id="drawStatus">Dibujando polígono — <span id="vertCount">0</span> vértices. Haz clic sobre la imagen para agregar puntos.</div>
+    <div id="drawStatus">Editando polígono — <span id="vertCount">0</span> vértices. Toca la imagen para agregar puntos; arrastra un punto blanco para ajustarlo.</div>
 
     <button id="startDraw" class="primary">+ Nuevo lote (dibujar)</button>
     <button id="finishDraw" disabled>Cerrar polígono (mín. 3 puntos)</button>
-    <button id="cancelDraw" class="danger" disabled>Cancelar dibujo</button>
+    <button id="cancelDraw" class="danger" disabled>Cancelar</button>
 
     <hr>
 
@@ -91,7 +97,7 @@
   <div id="error">
     <div>
       <h2>No se pudo cargar el panorama</h2>
-      <p id="error-msg">Revisa que exista <code>images/&lt;img&gt;.webp</code> y <code>data/&lt;img&gt;.json</code>, y que el enlace incluya <code>?img=nombre</code>.</p>
+      <p id="error-msg">Revisa que exista <code>images/&lt;img&gt;.webp</code> en el repositorio, y que el enlace incluya <code>?img=nombre</code>.</p>
     </div>
   </div>
 
