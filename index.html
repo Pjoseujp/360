@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Visualizador de lote 360°</title>
+<link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+
+  <div id="viewer"></div>
+
+  <!-- ===== Modo cliente ===== -->
+  <div id="hud">
+    <h1 id="hud-title">Visualizador de lote</h1>
+    <div id="hint">Arrastra para mirar · Rueda para acercar</div>
+  </div>
+
+  <div id="popup">
+    <button id="popup-close" aria-label="Cerrar">&times;</button>
+    <p id="popup-eyebrow">Lote</p>
+    <h2 id="popup-title"></h2>
+    <p id="popup-area"></p>
+    <p id="popup-desc"></p>
+    <ul id="popup-caract"></ul>
+  </div>
+
+  <!-- ===== Modo administrador ===== -->
+  <div id="panel">
+    <div>
+      <h1>Editor de lote</h1>
+      <p class="sub" id="panelSub">Cargando…</p>
+    </div>
+
+    <div class="field">
+      <label>Nombre de archivo (img)</label>
+      <input type="text" id="imgIdInput" placeholder="ej. sv_sj1">
+    </div>
+    <button id="reloadBtn">Cargar panorama e imagen</button>
+
+    <hr>
+
+    <div id="drawStatus">Dibujando polígono — <span id="vertCount">0</span> vértices. Haz clic sobre la imagen para agregar puntos.</div>
+
+    <button id="startDraw" class="primary">+ Nuevo lote (dibujar)</button>
+    <button id="finishDraw" disabled>Cerrar polígono (mín. 3 puntos)</button>
+    <button id="cancelDraw" class="danger" disabled>Cancelar dibujo</button>
+
+    <hr>
+
+    <div class="field">
+      <label>Nombre del lote</label>
+      <input type="text" id="fNombre" placeholder="ej. Lote 3">
+    </div>
+    <div class="field">
+      <label>Área</label>
+      <input type="text" id="fArea" placeholder="ej. 700 m²">
+    </div>
+    <div class="field">
+      <label>Descripción</label>
+      <textarea id="fDesc" rows="3" placeholder="Características del sitio…"></textarea>
+    </div>
+    <div class="field">
+      <label>Características (separadas por coma)</label>
+      <input type="text" id="fCaract" placeholder="Acceso pavimentado, Vista al lago">
+    </div>
+    <button id="addLotBtn" class="primary" disabled>Agregar lote a la lista</button>
+
+    <hr>
+
+    <div>
+      <p class="sub" style="margin-bottom:8px;">Lotes en este panorama</p>
+      <div id="lotList"></div>
+    </div>
+
+    <hr>
+
+    <div class="field">
+      <label>Título del panorama (opcional)</label>
+      <input type="text" id="fTitulo" placeholder="ej. Proyecto Vista Verde">
+    </div>
+    <button id="downloadBtn" class="primary">Descargar JSON</button>
+    <p class="sub">Súbelo a <code>data/&lt;img&gt;.json</code> en el repositorio, junto con <code>images/&lt;img&gt;.webp</code>.</p>
+  </div>
+
+  <!-- ===== Compartido: carga / error ===== -->
+  <div id="loading">
+    <div class="spinner"></div>
+    <p>Cargando panorama…</p>
+  </div>
+  <div id="error">
+    <div>
+      <h2>No se pudo cargar el panorama</h2>
+      <p id="error-msg">Revisa que exista <code>images/&lt;img&gt;.webp</code> y <code>data/&lt;img&gt;.json</code>, y que el enlace incluya <code>?img=nombre</code>.</p>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/three@0.128.0/build/three.min.js"></script>
+  <script src="https://unpkg.com/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+  <script src="js/viewer-core.js"></script>
+  <script src="js/client.js"></script>
+  <script src="js/admin.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>
