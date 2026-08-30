@@ -129,7 +129,7 @@
   <div id="error">
     <div>
       <h2>No se pudo cargar el panorama</h2>
-      <p id="error-msg">Revisa que exista <code>images/&lt;lote&gt;.jpg</code> y <code>data/&lt;lote&gt;.json</code> en el repositorio, y que el enlace incluya <code>?lote=nombre-del-archivo</code>.</p>
+      <p id="error-msg">Revisa que exista <code>images/&lt;lote&gt;.webp</code> y <code>data/&lt;lote&gt;.json</code> en el repositorio, y que el enlace incluya <code>?lote=nombre-del-archivo</code>.</p>
     </div>
   </div>
 
@@ -141,10 +141,10 @@
 
   // ---------- 1. Resolver qué lote mostrar a partir del link ----------
   // Un solo link cambia únicamente en el parámetro ?lote=
-  // Ej: index.html?lote=lote-norte  ->  images/lote-norte.jpg + data/lote-norte.json
+  // Ej: index.html?lote=lote-norte  ->  images/lote-norte.webp + data/lote-norte.json
   var params = new URLSearchParams(window.location.search);
   var loteId = params.get('lote') || 'lote-muestra';
-  var imageUrl = 'images/' + loteId + '.jpg';
+  var imageUrl = 'images/' + loteId + '.webp';
   var dataUrl  = 'data/'   + loteId + '.json';
 
   var loadingEl = document.getElementById('loading');
