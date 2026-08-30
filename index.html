@@ -49,7 +49,8 @@
     <div id="drawStatus">Editando polígono — <span id="vertCount">0</span> vértices. Toca la imagen para agregar puntos; arrastra un punto blanco para ajustarlo.</div>
 
     <button id="startDraw" class="primary">+ Nuevo lote (dibujar)</button>
-    <button id="finishDraw" disabled>Cerrar polígono (mín. 3 puntos)</button>
+    <button id="undoPoint" disabled>↩ Deshacer último punto</button>
+    <button id="finishDraw" disabled>Terminar de agregar puntos</button>
     <button id="cancelDraw" class="danger" disabled>Cancelar</button>
 
     <hr>
@@ -77,6 +78,37 @@
     <div>
       <p class="sub" style="margin-bottom:8px;">Lotes en este panorama</p>
       <div id="lotList"></div>
+    </div>
+
+    <hr>
+
+    <div>
+      <h1 style="margin-bottom:2px;">Puntos de interés</h1>
+      <p class="sub">Muelles, parques, bomberos, PNC, escuelas, etc.</p>
+    </div>
+
+    <div id="poiStatus">Toca la imagen para colocar el punto.</div>
+
+    <div class="field">
+      <label>Tipo</label>
+      <select id="poiTipo"></select>
+    </div>
+    <div class="field">
+      <label>Nombre</label>
+      <input type="text" id="poiNombre" placeholder="ej. Muelle municipal">
+    </div>
+    <div class="field">
+      <label>Descripción (opcional)</label>
+      <textarea id="poiDesc" rows="2" placeholder="Detalles del sitio…"></textarea>
+    </div>
+    <div class="row">
+      <button id="poiActionBtn" class="primary">Colocar punto en el mapa</button>
+      <button id="poiCancelBtn" class="danger" disabled>Cancelar</button>
+    </div>
+
+    <div>
+      <p class="sub" style="margin:8px 0;">Puntos en este panorama</p>
+      <div id="poiList"></div>
     </div>
 
     <hr>
