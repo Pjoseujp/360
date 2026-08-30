@@ -208,7 +208,7 @@
     if(panoSphere){ scene.remove(panoSphere); panoSphere = null; }
     var loader = new THREE.TextureLoader();
     loader.crossOrigin = 'anonymous';
-    loader.load('images/' + id + '.jpg', function(texture){
+    loader.load('images/' + id + '.webp', function(texture){
       var geo = new THREE.SphereGeometry(RADIUS_PANO, 60, 40);
       var mat = new THREE.MeshBasicMaterial({ map:texture, side:THREE.BackSide });
       panoSphere = new THREE.Mesh(geo, mat);
