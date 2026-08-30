@@ -1,0 +1,50 @@
+{
+  "titulo": "Medicion Topografica",
+  "lotes": [
+    {
+      "id": "lote-1",
+      "nombre": "Restaurante Sabor y VIda",
+      "area": "200",
+      "descripcion": "sss",
+      "caracteristicas": [
+        "Vista al lago",
+        "Servicios de agua y luz"
+      ],
+      "color": "#2ecc71",
+      "poligono": [
+        {
+          "pitch": -38.39,
+          "yaw": -91.27
+        },
+        {
+          "pitch": -40.68,
+          "yaw": -98.12
+        },
+        {
+          "pitch": -84.28,
+          "yaw": -120.01
+        },
+        {
+          "pitch": -87.24,
+          "yaw": -156.21
+        },
+        {
+          "pitch": -63.66,
+          "yaw": 92.49
+        },
+        {
+          "pitch": -59.01,
+          "yaw": 76.17
+        },
+        {
+          "pitch": -84.72,
+          "yaw": -11.55
+        },
+        {
+          "pitch": -83.33,
+          "yaw": -45.81
+        }
+      ]
+    }
+  ]
+}
