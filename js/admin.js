@@ -1,9 +1,10 @@
 // js/admin.js
-// Modo administrador: dibuja y edita polígonos sobre el panorama, y exporta el JSON del lote.
+// Modo administrador: dibuja/edita polígonos de lotes y coloca puntos de interés
+// con íconos, con un flujo simple (clic para agregar, arrastrar para ajustar).
 window.PanoAdmin = (function () {
   "use strict";
 
-  var TAP_THRESHOLD = 6; // px: distingue un tap (agregar vértice) de un arrastre de cámara
+  var TAP_THRESHOLD = 6; // px: distingue un tap (agregar punto) de un arrastre de cámara
 
   function init(imgId) {
     var container = document.getElementById("viewer");
@@ -16,15 +17,18 @@ window.PanoAdmin = (function () {
     window.PanoCore.attachWheelZoom(renderer, camera);
     window.PanoCore.attachTouchPinchZoom(renderer, camera);
 
-    // Esfera invisible siempre presente: sirve para ubicar vértices con precisión
+    // Esfera invisible siempre presente: sirve para ubicar puntos con precisión
     // aunque la imagen todavía no haya cargado.
     var pickingSphere = window.PanoCore.createPickingSphere();
     scene.add(pickingSphere);
 
     var panoSphere = null;
     var savedLots = [];
+    var savedPoints = [];
     var savedGroup = new THREE.Group(); // render de los lotes ya guardados
+    var poiGroup = new THREE.Group();   // render de los puntos de interés
     scene.add(savedGroup);
+    scene.add(poiGroup);
 
     function loadPanorama(id) {
       loadingEl.classList.remove("hidden");
@@ -44,9 +48,13 @@ window.PanoAdmin = (function () {
       fetch("data/" + id + ".json").then(function (r) { return r.ok ? r.json() : null; })
         .then(function (data) {
           savedLots = (data && data.lotes) || [];
+          savedPoints = (data && data.puntos) || [];
           document.getElementById("fTitulo").value = (data && data.titulo) || "";
           renderLotList();
-        }).catch(function () { savedLots = []; renderLotList(); });
+          renderPoiList();
+          rebuildSavedGroup();
+          rebuildPoiGroup();
+        }).catch(function () { savedLots = []; savedPoints = []; renderLotList(); renderPoiList(); });
     }
     loadPanorama(imgId);
 
@@ -55,17 +63,22 @@ window.PanoAdmin = (function () {
       loadPanorama(imgId);
     });
 
-    // ---------- Estado de dibujo / edición ----------
+    // =======================================================================
+    //  LOTES: dibujar / editar polígonos (estilo simple, tipo Google Earth Pro:
+    //  clic para agregar vértices, arrastrar cualquier punto para ajustarlo,
+    //  deshacer el último, guardar cuando esté listo).
+    // =======================================================================
     var currentPoints = [];   // Vector3[] del lote que se está dibujando o editando
     var markerMeshes = [];    // esferas blancas arrastrables, una por vértice
-    var editingIndex = null;  // índice en savedLots si se está editando uno existente, o null si es nuevo
-    var active = false;       // true mientras hay un dibujo/edición en curso
+    var editingIndex = null;  // índice en savedLots si se edita uno existente, o null si es nuevo
+    var active = false;       // true mientras hay un dibujo/edición de lote en curso
     var addingVertices = false; // true si un tap en área vacía agrega un vértice nuevo
     var previewGroup = new THREE.Group();
     scene.add(previewGroup);
     var previewLine = null;
 
     var startDrawBtn = document.getElementById("startDraw");
+    var undoPointBtn = document.getElementById("undoPoint");
     var finishDrawBtn = document.getElementById("finishDraw");
     var cancelDrawBtn = document.getElementById("cancelDraw");
     var addLotBtn = document.getElementById("addLotBtn");
@@ -82,6 +95,8 @@ window.PanoAdmin = (function () {
         previewGroup.add(previewLine);
       }
       vertCountEl.textContent = String(currentPoints.length);
+      undoPointBtn.disabled = currentPoints.length === 0;
+      addLotBtn.disabled = currentPoints.length < 3;
     }
 
     function addMarker(pos) {
@@ -102,33 +117,32 @@ window.PanoAdmin = (function () {
       vertCountEl.textContent = "0";
     }
 
-    function renderSavedLot(idx) {
-      // (re)dibuja el relleno+contorno de un lote guardado; se omite el que está en edición.
-      if (idx === editingIndex) return;
-      var lot = savedLots[idx];
-      if (!lot.poligono || lot.poligono.length < 3) return;
-      var visuals = window.PanoCore.buildLotVisuals(lot);
-      savedGroup.add(visuals.fillMesh);
-      savedGroup.add(visuals.outline);
-    }
     function rebuildSavedGroup() {
       while (savedGroup.children.length) {
         var c = savedGroup.children.pop();
         c.geometry.dispose(); c.material.dispose();
       }
-      savedLots.forEach(function (_, idx) { renderSavedLot(idx); });
+      savedLots.forEach(function (lot, idx) {
+        if (idx === editingIndex) return; // se omite el que está en edición
+        if (!lot.poligono || lot.poligono.length < 3) return;
+        var visuals = window.PanoCore.buildLotVisuals(lot);
+        savedGroup.add(visuals.fillMesh);
+        savedGroup.add(visuals.outline);
+      });
     }
 
-    function setButtonsForNew() {
+    function setButtonsIdle() {
       startDrawBtn.disabled = false;
+      undoPointBtn.disabled = true;
       finishDrawBtn.disabled = true;
       cancelDrawBtn.disabled = true;
       addLotBtn.disabled = true;
-      addLotBtn.textContent = "Agregar lote a la lista";
+      addLotBtn.textContent = "Guardar lote";
       drawStatus.classList.remove("active");
     }
 
     function beginNewLot() {
+      if (active) return;
       active = true; addingVertices = true; editingIndex = null;
       clearDraft();
       document.getElementById("fNombre").value = "";
@@ -137,11 +151,11 @@ window.PanoAdmin = (function () {
       document.getElementById("fCaract").value = "";
       drawStatus.classList.add("active");
       startDrawBtn.disabled = true;
-      finishDrawBtn.disabled = true;
+      undoPointBtn.disabled = true;
+      finishDrawBtn.disabled = false;
       cancelDrawBtn.disabled = false;
       addLotBtn.disabled = true;
-      addLotBtn.textContent = "Agregar lote a la lista";
-      rebuildSavedGroup();
+      addLotBtn.textContent = "Guardar lote";
     }
 
     function beginEditLot(idx) {
@@ -160,27 +174,37 @@ window.PanoAdmin = (function () {
       document.getElementById("fCaract").value = (lot.caracteristicas || []).join(", ");
       drawStatus.classList.add("active");
       startDrawBtn.disabled = true;
-      finishDrawBtn.disabled = true; // ya está "cerrado"; solo se arrastran puntos o se guarda
+      undoPointBtn.disabled = currentPoints.length === 0;
+      finishDrawBtn.disabled = true; // ya está "cerrado": se arrastran puntos o se agregan más con "+"
       cancelDrawBtn.disabled = false;
       addLotBtn.disabled = false;
       addLotBtn.textContent = "Guardar cambios";
       rebuildSavedGroup(); // oculta el lote en edición de la vista "guardada"
     }
 
-    function endEditing() {
+    function endLotEditing() {
       active = false; addingVertices = false; editingIndex = null;
       clearDraft();
-      setButtonsForNew();
+      setButtonsIdle();
       rebuildSavedGroup();
     }
 
     startDrawBtn.addEventListener("click", beginNewLot);
-    cancelDrawBtn.addEventListener("click", endEditing);
+    cancelDrawBtn.addEventListener("click", endLotEditing);
 
+    undoPointBtn.addEventListener("click", function () {
+      if (!currentPoints.length) return;
+      currentPoints.pop();
+      var lastMarker = markerMeshes.pop();
+      if (lastMarker) { previewGroup.remove(lastMarker); lastMarker.geometry.dispose(); lastMarker.material.dispose(); }
+      redrawLine();
+    });
+
+    // "Terminar de agregar puntos": deja de sumar vértices al tocar el fondo,
+    // pero los puntos ya colocados se pueden seguir arrastrando y guardando.
     finishDrawBtn.addEventListener("click", function () {
       addingVertices = false;
       finishDrawBtn.disabled = true;
-      addLotBtn.disabled = currentPoints.length < 3;
     });
 
     addLotBtn.addEventListener("click", function () {
@@ -208,7 +232,7 @@ window.PanoAdmin = (function () {
       if (editingIndex !== null) { savedLots[editingIndex] = lotData; }
       else { savedLots.push(lotData); }
 
-      endEditing();
+      endLotEditing();
       renderLotList();
     });
 
@@ -231,7 +255,7 @@ window.PanoAdmin = (function () {
         var del = document.createElement("button");
         del.className = "x"; del.textContent = "×"; del.title = "Eliminar lote";
         del.addEventListener("click", function () {
-          if (editingIndex === idx) endEditing();
+          if (editingIndex === idx) endLotEditing();
           savedLots.splice(idx, 1);
           renderLotList();
           rebuildSavedGroup();
@@ -243,35 +267,147 @@ window.PanoAdmin = (function () {
     }
     renderLotList();
 
-    // ---------- Interacción: agregar vértice (tap) o arrastrar un vértice existente ----------
+    // =======================================================================
+    //  PUNTOS DE INTERÉS: un solo clic para colocar un ícono (muelle, parque,
+    //  bomberos, PNC, etc.). Se pueden arrastrar directamente para reubicarlos.
+    // =======================================================================
+    var placingPoi = false;
+    var editingPoiIndex = null;
+    var poiTipoSelect = document.getElementById("poiTipo");
+    var poiNombreInput = document.getElementById("poiNombre");
+    var poiDescInput = document.getElementById("poiDesc");
+    var poiActionBtn = document.getElementById("poiActionBtn");
+    var poiCancelBtn = document.getElementById("poiCancelBtn");
+    var poiStatus = document.getElementById("poiStatus");
+
+    Object.keys(window.PanoCore.ICON_TYPES).forEach(function (key) {
+      var opt = document.createElement("option");
+      opt.value = key;
+      opt.textContent = window.PanoCore.ICON_TYPES[key].emoji + " " + window.PanoCore.ICON_TYPES[key].label;
+      poiTipoSelect.appendChild(opt);
+    });
+
+    function rebuildPoiGroup() {
+      while (poiGroup.children.length) {
+        var c = poiGroup.children.pop();
+        c.material.map.dispose(); c.material.dispose();
+      }
+      savedPoints.forEach(function (poi) {
+        poiGroup.add(window.PanoCore.createPoiSprite(poi));
+      });
+    }
+
+    function resetPoiForm() {
+      placingPoi = false; editingPoiIndex = null;
+      poiNombreInput.value = ""; poiDescInput.value = "";
+      poiActionBtn.textContent = "Colocar punto en el mapa";
+      poiCancelBtn.disabled = true;
+      poiStatus.classList.remove("active");
+    }
+    resetPoiForm();
+
+    poiActionBtn.addEventListener("click", function () {
+      if (editingPoiIndex !== null) {
+        // Guardar cambios de tipo/nombre/descripción de un punto existente (sin recolocarlo).
+        var poi = savedPoints[editingPoiIndex];
+        poi.tipo = poiTipoSelect.value;
+        poi.nombre = poiNombreInput.value.trim() || poi.nombre;
+        poi.descripcion = poiDescInput.value.trim();
+        rebuildPoiGroup();
+        renderPoiList();
+        resetPoiForm();
+        return;
+      }
+      if (!poiNombreInput.value.trim()) { alert("Escribe un nombre para el punto."); return; }
+      placingPoi = true;
+      poiActionBtn.textContent = "Toca la imagen para colocarlo…";
+      poiCancelBtn.disabled = false;
+      poiStatus.classList.add("active");
+    });
+
+    poiCancelBtn.addEventListener("click", resetPoiForm);
+
+    function renderPoiList() {
+      var list = document.getElementById("poiList");
+      list.innerHTML = "";
+      if (!savedPoints.length) {
+        list.innerHTML = '<p class="sub">Aún no hay puntos de interés.</p>';
+        return;
+      }
+      savedPoints.forEach(function (poi, idx) {
+        var item = document.createElement("div");
+        item.className = "lot-item";
+        var info = window.PanoCore.ICON_TYPES[poi.tipo] || window.PanoCore.ICON_TYPES.generico;
+        item.innerHTML = "<div>" + info.emoji + " " + poi.nombre + "<br><span>" + info.label + "</span></div>";
+        var actions = document.createElement("div");
+        actions.style.display = "flex";
+        var edit = document.createElement("button");
+        edit.className = "x"; edit.textContent = "✏️"; edit.title = "Editar nombre/tipo (arrástralo en el mapa para moverlo)";
+        edit.addEventListener("click", function () {
+          editingPoiIndex = idx; placingPoi = false;
+          poiTipoSelect.value = poi.tipo;
+          poiNombreInput.value = poi.nombre;
+          poiDescInput.value = poi.descripcion || "";
+          poiActionBtn.textContent = "Guardar cambios";
+          poiCancelBtn.disabled = false;
+        });
+        var del = document.createElement("button");
+        del.className = "x"; del.textContent = "×"; del.title = "Eliminar punto";
+        del.addEventListener("click", function () {
+          savedPoints.splice(idx, 1);
+          rebuildPoiGroup();
+          renderPoiList();
+          if (editingPoiIndex === idx) resetPoiForm();
+        });
+        actions.appendChild(edit); actions.appendChild(del);
+        item.appendChild(actions);
+        list.appendChild(item);
+      });
+    }
+    renderPoiList();
+
+    // =======================================================================
+    //  Interacción compartida: agregar vértice/punto (tap) o arrastrar uno
+    //  existente (vértice de lote o ícono de punto de interés).
+    // =======================================================================
     var raycaster = new THREE.Raycaster();
     var mouse = new THREE.Vector2();
-    var draggingMarker = null; // mesh que se está arrastrando, o null
+    var draggingObject = null; // marcador de vértice o sprite de POI que se arrastra
     var downInfo = null;       // {x,y} del pointerdown, para distinguir tap de arrastre
+
+    function draggableTargets() {
+      return markerMeshes.concat(poiGroup.children);
+    }
 
     renderer.domElement.addEventListener("pointerdown", function (e) {
       downInfo = { x: e.clientX, y: e.clientY };
-      if (!active) return;
-      var hitMarker = window.PanoCore.pickObject(e.clientX, e.clientY, renderer, camera, raycaster, mouse, markerMeshes);
-      if (hitMarker) {
-        draggingMarker = hitMarker.object;
-        controls.enabled = false; // evita que la cámara rote mientras se arrastra el punto
+      var hit = window.PanoCore.pickObject(e.clientX, e.clientY, renderer, camera, raycaster, mouse, draggableTargets());
+      if (hit) {
+        draggingObject = hit.object;
+        controls.enabled = false; // evita que la cámara rote mientras se arrastra
       }
     });
 
     renderer.domElement.addEventListener("pointermove", function (e) {
-      if (!draggingMarker) return;
+      if (!draggingObject) return;
       var hit = window.PanoCore.pickObject(e.clientX, e.clientY, renderer, camera, raycaster, mouse, [pickingSphere]);
       if (!hit) return;
-      var idx = markerMeshes.indexOf(draggingMarker);
-      draggingMarker.position.copy(hit.point);
-      currentPoints[idx] = hit.point.clone();
-      redrawLine();
+      var idx = markerMeshes.indexOf(draggingObject);
+      if (idx !== -1) {
+        draggingObject.position.copy(hit.point);
+        currentPoints[idx] = hit.point.clone();
+        redrawLine();
+      } else if (draggingObject.userData.poi) {
+        draggingObject.position.copy(hit.point);
+        var py = window.PanoCore.vectorToPitchYaw(hit.point);
+        draggingObject.userData.poi.pitch = Math.round(py.pitch * 100) / 100;
+        draggingObject.userData.poi.yaw = Math.round(py.yaw * 100) / 100;
+      }
     });
 
     renderer.domElement.addEventListener("pointerup", function (e) {
-      if (draggingMarker) {
-        draggingMarker = null;
+      if (draggingObject) {
+        draggingObject = null;
         controls.enabled = true;
         downInfo = null; // fue un arrastre, no debe contarse como tap
         return;
@@ -280,20 +416,37 @@ window.PanoAdmin = (function () {
       var dx = e.clientX - downInfo.x, dy = e.clientY - downInfo.y;
       downInfo = null;
       if (Math.sqrt(dx * dx + dy * dy) > TAP_THRESHOLD) return; // fue un arrastre de cámara, no un tap
-      if (!active || !addingVertices) return;
+
       var hit = window.PanoCore.pickObject(e.clientX, e.clientY, renderer, camera, raycaster, mouse, [pickingSphere]);
       if (!hit) return;
-      currentPoints.push(hit.point.clone());
-      addMarker(hit.point.clone());
-      redrawLine();
-      finishDrawBtn.disabled = currentPoints.length < 3;
+
+      if (active && addingVertices) {
+        currentPoints.push(hit.point.clone());
+        addMarker(hit.point.clone());
+        redrawLine();
+      } else if (placingPoi) {
+        var py = window.PanoCore.vectorToPitchYaw(hit.point);
+        var poi = {
+          id: "poi-" + (savedPoints.length + 1),
+          tipo: poiTipoSelect.value,
+          nombre: poiNombreInput.value.trim(),
+          descripcion: poiDescInput.value.trim(),
+          pitch: Math.round(py.pitch * 100) / 100,
+          yaw: Math.round(py.yaw * 100) / 100
+        };
+        savedPoints.push(poi);
+        rebuildPoiGroup();
+        renderPoiList();
+        resetPoiForm();
+      }
     });
 
     // ---------- Descargar JSON ----------
     document.getElementById("downloadBtn").addEventListener("click", function () {
       var payload = {
         titulo: document.getElementById("fTitulo").value.trim() || undefined,
-        lotes: savedLots
+        lotes: savedLots,
+        puntos: savedPoints
       };
       var blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
       var url = URL.createObjectURL(blob);

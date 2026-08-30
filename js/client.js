@@ -1,5 +1,6 @@
 // js/client.js
-// Modo cliente: muestra el panorama y los lotes, con hover/tap y popup arrastrable.
+// Modo cliente: muestra el panorama, los lotes y los puntos de interés,
+// con hover/tap y un popup arrastrable.
 window.PanoClient = (function () {
   "use strict";
 
@@ -14,7 +15,7 @@ window.PanoClient = (function () {
     var imageUrl = "images/" + imgId + ".webp";
     var dataUrl = "data/" + imgId + ".json";
 
-    // El JSON es opcional: si no existe, se muestra el panorama limpio sin lotes.
+    // El JSON es opcional: si no existe, se muestra el panorama limpio sin lotes ni puntos.
     fetch(dataUrl)
       .then(function (r) { return r.ok ? r.json() : {}; })
       .catch(function () { return {}; })
@@ -40,13 +41,20 @@ window.PanoClient = (function () {
         loadingEl.classList.add("hidden");
       });
 
-      var lotMeshes = [];
+      var interactive = []; // mallas/sprites clicables: lotes + puntos de interés
+
       (data.lotes || []).forEach(function (lot) {
         if (!lot.poligono || lot.poligono.length < 3) return;
         var visuals = window.PanoCore.buildLotVisuals(lot);
         scene.add(visuals.fillMesh);
         scene.add(visuals.outline);
-        lotMeshes.push(visuals.fillMesh);
+        interactive.push(visuals.fillMesh);
+      });
+
+      (data.puntos || []).forEach(function (poi) {
+        var sprite = window.PanoCore.createPoiSprite(poi);
+        scene.add(sprite);
+        interactive.push(sprite);
       });
 
       var raycaster = new THREE.Raycaster();
@@ -56,15 +64,19 @@ window.PanoClient = (function () {
       var popupHeader = document.getElementById("popup-header");
       var popupLine = document.getElementById("popup-line-svg");
       var lineEl = document.getElementById("popup-line");
-      var openLot = null; // mesh del lote cuyo popup está abierto (para la línea guía)
-      var popupPos = null; // {x,y} posición manual del popup mientras está abierto
+      var openTarget = null;  // objeto (lote o punto) cuyo popup está abierto
+      var popupPos = null;    // {x,y} posición manual del popup mientras está abierto
 
-      function setHover(mesh) {
-        if (hovered === mesh) return;
-        if (hovered) hovered.material.opacity = hovered.userData.baseOpacity;
-        hovered = mesh;
+      function setHover(obj) {
+        if (hovered === obj) return;
         if (hovered) {
-          hovered.material.opacity = hovered.userData.hoverOpacity;
+          if (hovered.userData.lot) hovered.material.opacity = hovered.userData.baseOpacity;
+          else if (hovered.userData.poi) hovered.scale.set(hovered.userData.baseScale, hovered.userData.baseScale, 1);
+        }
+        hovered = obj;
+        if (hovered) {
+          if (hovered.userData.lot) hovered.material.opacity = hovered.userData.hoverOpacity;
+          else if (hovered.userData.poi) hovered.scale.set(hovered.userData.hoverScale, hovered.userData.hoverScale, 1);
           renderer.domElement.style.cursor = "pointer";
         } else {
           renderer.domElement.style.cursor = "grab";
@@ -72,7 +84,7 @@ window.PanoClient = (function () {
       }
 
       renderer.domElement.addEventListener("mousemove", function (e) {
-        var hit = window.PanoCore.pickObject(e.clientX, e.clientY, renderer, camera, raycaster, mouse, lotMeshes);
+        var hit = window.PanoCore.pickObject(e.clientX, e.clientY, renderer, camera, raycaster, mouse, interactive);
         setHover(hit ? hit.object : null);
       });
 
@@ -87,35 +99,42 @@ window.PanoClient = (function () {
         var dx = e.clientX - downPos.x, dy = e.clientY - downPos.y;
         downPos = null;
         if (Math.sqrt(dx * dx + dy * dy) > TAP_THRESHOLD) return;
-        var hit = window.PanoCore.pickObject(e.clientX, e.clientY, renderer, camera, raycaster, mouse, lotMeshes);
+        var hit = window.PanoCore.pickObject(e.clientX, e.clientY, renderer, camera, raycaster, mouse, interactive);
         if (hit) showPopup(hit.object);
       });
 
-      function showPopup(mesh) {
-        var lot = mesh.userData.lot;
-        document.getElementById("popup-title").textContent = lot.nombre || "Lote";
-        document.getElementById("popup-area").textContent = lot.area ? ("Área: " + lot.area) : "";
-        document.getElementById("popup-desc").textContent = lot.descripcion || "";
+      function showPopup(obj) {
+        var info = obj.userData.lot || obj.userData.poi;
+        document.getElementById("popup-title").textContent = info.nombre || "Sitio";
+        document.getElementById("popup-area").textContent = info.area ? ("Área: " + info.area) : "";
+        document.getElementById("popup-desc").textContent = info.descripcion || "";
         var list = document.getElementById("popup-caract");
         list.innerHTML = "";
-        (lot.caracteristicas || []).forEach(function (c) {
+        (info.caracteristicas || []).forEach(function (c) {
           var li = document.createElement("li");
           li.textContent = c;
           list.appendChild(li);
         });
 
-        openLot = mesh;
+        openTarget = obj;
         popup.classList.remove("dragged");
         popup.classList.add("visible");
         popupLine.classList.add("visible");
-        popupPos = null; // se recalcula una posición inicial cerca del lote
+        popupPos = null; // se recalcula una posición inicial cerca del objeto
       }
 
-      document.getElementById("popup-close").addEventListener("click", function () {
+      document.getElementById("popup-close").addEventListener("click", closePopup);
+
+      function closePopup() {
         popup.classList.remove("visible");
         popupLine.classList.remove("visible");
-        openLot = null;
-      });
+        popupLine.style.opacity = ""; // limpia el estilo en línea que el loop de animación va escribiendo;
+                                       // si no se limpia, queda "pegado" y gana sobre la clase CSS al cerrar
+        openTarget = null;
+        popupPos = null;
+        stopDragPopup();
+        popup.classList.remove("dragged");
+      }
 
       // ---------- Arrastrar el popup ----------
       var draggingPopup = false, dragOffset = { x: 0, y: 0 };
@@ -160,8 +179,8 @@ window.PanoClient = (function () {
         renderer.render(scene, camera);
 
         // Actualiza posición del popup (si aún no fue arrastrado) y la línea guía.
-        if (openLot) {
-          var anchor = window.PanoCore.worldToScreen(openLot.userData.centroid, camera, renderer);
+        if (openTarget) {
+          var anchor = window.PanoCore.worldToScreen(openTarget.userData.centroid, camera, renderer);
           if (!popupPos) {
             var w = popup.offsetWidth || 340, h = popup.offsetHeight || 220;
             popupPos = {

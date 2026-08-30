@@ -1,14 +1,28 @@
 // js/viewer-core.js
 // Lógica compartida entre el modo cliente y el modo administrador:
-// motor 3D, carga del panorama y construcción de los polígonos de lotes.
+// motor 3D, carga del panorama, polígonos de lotes y puntos de interés.
 window.PanoCore = (function () {
   "use strict";
 
   var RADIUS_PANO = 500;   // radio de la esfera panorámica
-  var RADIUS_POLY = 496;   // radio de los polígonos (ligeramente dentro, evita z-fighting)
+  var RADIUS_POLY = 496;   // radio de los polígonos e íconos (ligeramente dentro, evita z-fighting)
   var INITIAL_FOV = 75;    // FOV inicial: no arranca en el zoom más alejado posible
   var MIN_FOV = 35;        // más zoom (acercar)
   var MAX_FOV = 100;       // menos zoom (alejar)
+
+  // Tipos de punto de interés disponibles (ícono + etiqueta para el selector del administrador).
+  var ICON_TYPES = {
+    generico:    { emoji: "📍", label: "Genérico" },
+    muelle:      { emoji: "⚓", label: "Muelle" },
+    parque:      { emoji: "🌳", label: "Parque" },
+    bomberos:    { emoji: "🚒", label: "Bomberos" },
+    policia:     { emoji: "🚓", label: "PNC / Policía" },
+    escuela:     { emoji: "🏫", label: "Escuela" },
+    salud:       { emoji: "🏥", label: "Centro de salud" },
+    iglesia:     { emoji: "⛪", label: "Iglesia" },
+    comercio:    { emoji: "🏪", label: "Comercio" },
+    restaurante: { emoji: "🍽️", label: "Restaurante" }
+  };
 
   // Convención de coordenadas:
   //   pitch: -90 (abajo) .. 90 (arriba), 0 = horizonte
@@ -129,10 +143,14 @@ window.PanoCore = (function () {
   }
 
   // Esfera invisible (pero raycasteable) usada como superficie de referencia para
-  // ubicar vértices con precisión, independientemente de si la textura ya cargó.
+  // ubicar vértices/puntos con precisión, independientemente de si la textura ya cargó.
+  // OJO: material.side = DoubleSide es indispensable — la cámara está DENTRO de esta
+  // esfera, y con el "side" por defecto (FrontSide) los rayos hacia afuera nunca la tocan.
   function createPickingSphere() {
     var geo = new THREE.SphereGeometry(RADIUS_POLY, 48, 32);
-    var mat = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false });
+    var mat = new THREE.MeshBasicMaterial({
+      transparent: true, opacity: 0, depthWrite: false, side: THREE.DoubleSide
+    });
     var mesh = new THREE.Mesh(geo, mat);
     mesh.renderOrder = -1;
     return mesh;
@@ -176,6 +194,40 @@ window.PanoCore = (function () {
     return { fillMesh: fillMesh, outline: outline, centroid: centroid };
   }
 
+  // Dibuja el ícono (emoji sobre un círculo) de un punto de interés en un canvas,
+  // usado como textura de un THREE.Sprite (siempre mira hacia la cámara).
+  function createPoiSprite(poi) {
+    var size = 128;
+    var canvas = document.createElement("canvas");
+    canvas.width = canvas.height = size;
+    var ctx = canvas.getContext("2d");
+    ctx.beginPath();
+    ctx.arc(size / 2, size / 2, size / 2 - 8, 0, Math.PI * 2);
+    ctx.fillStyle = "rgba(15,23,20,0.88)";
+    ctx.fill();
+    ctx.lineWidth = 7;
+    ctx.strokeStyle = "#ffffff";
+    ctx.stroke();
+    var info = ICON_TYPES[poi.tipo] || ICON_TYPES.generico;
+    ctx.font = Math.floor(size * 0.52) + "px sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(info.emoji, size / 2, size / 2 + 4);
+
+    var texture = new THREE.CanvasTexture(canvas);
+    texture.needsUpdate = true;
+    var material = new THREE.SpriteMaterial({ map: texture, transparent: true, depthTest: false });
+    var sprite = new THREE.Sprite(material);
+    sprite.position.copy(pitchYawToVector(poi.pitch, poi.yaw, RADIUS_POLY));
+    sprite.scale.set(34, 34, 1);
+    sprite.renderOrder = 5;
+    sprite.userData.poi = poi;
+    sprite.userData.centroid = sprite.position;
+    sprite.userData.baseScale = 34;
+    sprite.userData.hoverScale = 40;
+    return sprite;
+  }
+
   // Convierte una posición de mouse/touch en coordenadas normalizadas y devuelve
   // el primer objeto intersectado de la lista dada.
   function pickObject(clientX, clientY, renderer, camera, raycaster, mouseVec, objects) {
@@ -203,6 +255,7 @@ window.PanoCore = (function () {
     RADIUS_POLY: RADIUS_POLY,
     MIN_FOV: MIN_FOV,
     MAX_FOV: MAX_FOV,
+    ICON_TYPES: ICON_TYPES,
     pitchYawToVector: pitchYawToVector,
     vectorToPitchYaw: vectorToPitchYaw,
     createEngine: createEngine,
@@ -212,6 +265,7 @@ window.PanoCore = (function () {
     buildPanoramaSphere: buildPanoramaSphere,
     createPickingSphere: createPickingSphere,
     buildLotVisuals: buildLotVisuals,
+    createPoiSprite: createPoiSprite,
     pickObject: pickObject,
     worldToScreen: worldToScreen
   };
