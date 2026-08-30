@@ -154,12 +154,15 @@ button.primary:hover{ background:var(--verde-hover); }
 button.danger{ background:rgba(220,80,80,.15); border-color:rgba(220,80,80,.4); }
 button:disabled{ opacity:.4; cursor:not-allowed; }
 
-#drawStatus{
+#drawStatus, #poiStatus{
   font-size:12px; padding:9px 10px; border-radius:8px;
   background:rgba(46,204,113,.12); border:1px solid rgba(46,204,113,.3);
   display:none;
 }
-#drawStatus.active{ display:block; }
+#drawStatus.active, #poiStatus.active{ display:block; }
+
+.row{ display:flex; gap:8px; }
+.row button{ flex:1; }
 
 hr{ border:none; border-top:1px solid var(--borde); margin:4px 0; }
 
