@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Visualizador de lote 360°</title>
+<style>
+  :root{
+    --verde: #2ecc71;
+    --verde-hover: #58e08c;
+    --panel-bg: rgba(15, 23, 20, 0.88);
+    --texto: #eef3ee;
+  }
+  *{ box-sizing: border-box; }
+  html, body{
+    margin:0; padding:0; width:100%; height:100%;
+    background:#000; overflow:hidden;
+    font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    color: var(--texto);
+  }
+  #viewer{ position:fixed; inset:0; }
+  #viewer canvas{ display:block; touch-action:none; }
+
+  #hud{
+    position:fixed; top:0; left:0; right:0;
+    display:flex; align-items:center; justify-content:space-between;
+    padding:18px 24px;
+    background:linear-gradient(to bottom, rgba(0,0,0,.55), transparent);
+    pointer-events:none;
+    z-index:5;
+  }
+  #hud h1{
+    margin:0; font-size:16px; font-weight:600; letter-spacing:.04em;
+    text-transform:uppercase; opacity:.85;
+  }
+  #hint{
+    font-size:12.5px; opacity:.65;
+    background:rgba(0,0,0,.35); padding:6px 12px; border-radius:20px;
+  }
+
+  #loading{
+    position:fixed; inset:0; display:flex; flex-direction:column;
+    align-items:center; justify-content:center; gap:14px;
+    background:#0a0e0b; z-index:20; transition:opacity .4s ease;
+  }
+  #loading.hidden{ opacity:0; pointer-events:none; }
+  .spinner{
+    width:34px; height:34px; border-radius:50%;
+    border:3px solid rgba(46,204,113,.25);
+    border-top-color: var(--verde);
+    animation: spin 0.9s linear infinite;
+  }
+  @keyframes spin{ to{ transform:rotate(360deg); } }
+  #loading p{ font-size:13px; opacity:.7; letter-spacing:.03em; }
+
+  #error{
+    position:fixed; inset:0; display:none; align-items:center; justify-content:center;
+    text-align:center; padding:32px; z-index:20; background:#0a0e0b;
+  }
+  #error.visible{ display:flex; }
+  #error div{ max-width:420px; }
+  #error h2{ margin:0 0 8px; font-size:18px; }
+  #error p{ opacity:.7; font-size:14px; line-height:1.5; }
+  #error code{ background:rgba(255,255,255,.08); padding:2px 6px; border-radius:4px; }
+
+  #popup{
+    position:fixed; z-index:10;
+    left:50%; top:50%; transform:translate(-50%,-50%) scale(.96);
+    width:min(340px, 86vw);
+    background: var(--panel-bg);
+    backdrop-filter: blur(10px);
+    border:1px solid rgba(255,255,255,.12);
+    border-radius:14px;
+    padding:22px 22px 20px;
+    box-shadow: 0 20px 60px rgba(0,0,0,.5);
+    opacity:0; pointer-events:none;
+    transition: opacity .18s ease, transform .18s ease;
+  }
+  #popup.visible{ opacity:1; pointer-events:auto; transform:translate(-50%,-50%) scale(1); }
+  #popup-close{
+    position:absolute; top:12px; right:12px;
+    width:26px; height:26px; border-radius:50%;
+    border:none; background:rgba(255,255,255,.08); color:var(--texto);
+    font-size:15px; line-height:1; cursor:pointer;
+    display:flex; align-items:center; justify-content:center;
+    transition:background .15s ease;
+  }
+  #popup-close:hover{ background:rgba(255,255,255,.18); }
+  #popup-eyebrow{
+    font-size:10.5px; text-transform:uppercase; letter-spacing:.12em;
+    color: var(--verde-hover); margin:0 0 6px; font-weight:600;
+  }
+  #popup h2{ margin:0 0 4px; font-size:19px; line-height:1.25; padding-right:20px; }
+  #popup-area{ margin:0 0 12px; font-size:13px; opacity:.65; }
+  #popup-desc{ margin:0 0 14px; font-size:13.5px; line-height:1.55; opacity:.9; }
+  #popup-caract{ list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:6px; }
+  #popup-caract li{
+    font-size:13px; opacity:.85; padding-left:16px; position:relative;
+  }
+  #popup-caract li::before{
+    content:"—"; position:absolute; left:0; color: var(--verde-hover); opacity:.8;
+  }
+  #popup-caract:empty{ display:none; }
+</style>
+</head>
+<body>
+
+  <div id="viewer"></div>
+
+  <div id="hud">
+    <h1 id="hud-title">Visualizador de lote</h1>
+    <div id="hint">Arrastra para mirar · Rueda para acercar</div>
+  </div>
+
+  <div id="popup">
+    <button id="popup-close" aria-label="Cerrar">&times;</button>
+    <p id="popup-eyebrow">Lote</p>
+    <h2 id="popup-title"></h2>
+    <p id="popup-area"></p>
+    <p id="popup-desc"></p>
+    <ul id="popup-caract"></ul>
+  </div>
+
+  <div id="loading">
+    <div class="spinner"></div>
+    <p>Cargando panorama…</p>
+  </div>
+
+  <div id="error">
+    <div>
+      <h2>No se pudo cargar el panorama</h2>
+      <p id="error-msg">Revisa que exista <code>images/&lt;lote&gt;.jpg</code> y <code>data/&lt;lote&gt;.json</code> en el repositorio, y que el enlace incluya <code>?lote=nombre-del-archivo</code>.</p>
+    </div>
+  </div>
+
+<script src="https://unpkg.com/three@0.128.0/build/three.min.js"></script>
+<script src="https://unpkg.com/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script>
+(function(){
+  "use strict";
+
+  // ---------- 1. Resolver qué lote mostrar a partir del link ----------
+  // Un solo link cambia únicamente en el parámetro ?lote=
+  // Ej: index.html?lote=lote-norte  ->  images/lote-norte.jpg + data/lote-norte.json
+  var params = new URLSearchParams(window.location.search);
+  var loteId = params.get('lote') || 'lote-muestra';
+  var imageUrl = 'images/' + loteId + '.jpg';
+  var dataUrl  = 'data/'   + loteId + '.json';
+
+  var loadingEl = document.getElementById('loading');
+  var errorEl   = document.getElementById('error');
+  var errorMsg  = document.getElementById('error-msg');
+
+  fetch(dataUrl)
+    .then(function(r){
+      if(!r.ok) throw new Error('No se encontró ' + dataUrl);
+      return r.json();
+    })
+    .then(function(data){ initViewer(data); })
+    .catch(function(err){
+      console.error(err);
+      errorMsg.textContent = err.message + '. Revisa que "' + dataUrl + '" exista en el repositorio.';
+      errorEl.classList.add('visible');
+      loadingEl.classList.add('hidden');
+    });
+
+  // ---------- 2. Utilidades de proyección esférica ----------
+  // Convención (compatible con visores 360 estándar):
+  //   pitch: -90 (abajo) .. 90 (arriba), 0 = horizonte
+  //   yaw:   -180 .. 180, 0 = frente de la imagen
+  var RADIUS_PANO = 500;
+  var RADIUS_POLY = 496; // ligeramente dentro de la esfera para evitar z-fighting
+
+  function pitchYawToVector(pitch, yaw, radius){
+    var phi = THREE.MathUtils.degToRad(90 - pitch);
+    var theta = THREE.MathUtils.degToRad(yaw);
+    return new THREE.Vector3(
+      radius * Math.sin(phi) * Math.sin(theta),
+      radius * Math.cos(phi),
+      radius * Math.sin(phi) * Math.cos(theta)
+    );
+  }
+
+  // ---------- 3. Construcción del visor ----------
+  function initViewer(data){
+    document.getElementById('hud-title').textContent = data.titulo || 'Visualizador de lote';
+
+    var container = document.getElementById('viewer');
+    var scene = new THREE.Scene();
+    var camera = new THREE.PerspectiveCamera(90, window.innerWidth/window.innerHeight, 0.1, 1200);
+    camera.position.set(0,0,0.01);
+
+    var renderer = new THREE.WebGLRenderer({ antialias:true });
+    renderer.setPixelRatio(window.devicePixelRatio || 1);
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    container.appendChild(renderer.domElement);
+
+    // --- Esfera panorámica ---
+    var loader = new THREE.TextureLoader();
+    loader.crossOrigin = 'anonymous';
+    loader.load(
+      imageUrl,
+      function(texture){
+        texture.colorSpace = THREE.SRGBColorSpace || texture.colorSpace;
+        var geo = new THREE.SphereGeometry(RADIUS_PANO, 60, 40);
+        var mat = new THREE.MeshBasicMaterial({ map: texture, side: THREE.BackSide });
+        var sphere = new THREE.Mesh(geo, mat);
+        scene.add(sphere);
+        loadingEl.classList.add('hidden');
+      },
+      undefined,
+      function(){
+        errorMsg.textContent = 'No se encontró la imagen "' + imageUrl + '" en el repositorio.';
+        errorEl.classList.add('visible');
+        loadingEl.classList.add('hidden');
+      }
+    );
+
+    // --- Controles de cámara (mirar alrededor, sin desplazar el punto de vista) ---
+    var controls = new THREE.OrbitControls(camera, renderer.domElement);
+    controls.target.set(0, 0, -1);
+    controls.enablePan = false;
+    controls.enableZoom = false; // el zoom se maneja como FOV, ver más abajo
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.08;
+    controls.rotateSpeed = -0.35; // invertido: arrastrar se siente natural en una esfera vista desde dentro
+    controls.minDistance = controls.maxDistance = 0.01;
+
+    // Zoom manual limitando el campo de visión (como acercar/alejar el lente)
+    var MIN_FOV = 35, MAX_FOV = 100;
+    renderer.domElement.addEventListener('wheel', function(e){
+      e.preventDefault();
+      camera.fov = THREE.MathUtils.clamp(camera.fov + e.deltaY * 0.03, MIN_FOV, MAX_FOV);
+      camera.updateProjectionMatrix();
+    }, { passive:false });
+
+    // --- Polígonos de lotes ---
+    var lotMeshes = [];
+    (data.lotes || []).forEach(function(lot){
+      if(!lot.poligono || lot.poligono.length < 3) return;
+
+      var verts = lot.poligono.map(function(p){ return pitchYawToVector(p.pitch, p.yaw, RADIUS_POLY); });
+      var centroid = new THREE.Vector3();
+      verts.forEach(function(v){ centroid.add(v); });
+      centroid.divideScalar(verts.length);
+      centroid.setLength(RADIUS_POLY); // proyectar el centro de vuelta a la esfera
+
+      // Relleno: abanico de triángulos desde el centroide
+      var positions = [];
+      for(var i=0;i<verts.length;i++){
+        var a = verts[i], b = verts[(i+1)%verts.length];
+        positions.push(centroid.x,centroid.y,centroid.z, a.x,a.y,a.z, b.x,b.y,b.z);
+      }
+      var fillGeo = new THREE.BufferGeometry();
+      fillGeo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+      fillGeo.computeVertexNormals();
+
+      var baseColor = lot.color || '#2ecc71';
+      var fillMat = new THREE.MeshBasicMaterial({
+        color: baseColor, transparent:true, opacity:0.32,
+        side:THREE.DoubleSide, depthWrite:false
+      });
+      var fillMesh = new THREE.Mesh(fillGeo, fillMat);
+      fillMesh.userData.lot = lot;
+      fillMesh.userData.baseOpacity = 0.32;
+      fillMesh.userData.hoverOpacity = 0.62;
+      scene.add(fillMesh);
+      lotMeshes.push(fillMesh);
+
+      // Contorno blanco
+      var outlinePts = verts.concat([verts[0]]);
+      var outlineGeo = new THREE.BufferGeometry().setFromPoints(outlinePts);
+      var outlineMat = new THREE.LineBasicMaterial({ color:0xffffff, transparent:true, opacity:0.9 });
+      var outline = new THREE.LineLoop(outlineGeo, outlineMat);
+      scene.add(outline);
+    });
+
+    // --- Interacción: hover + click sobre los lotes ---
+    var raycaster = new THREE.Raycaster();
+    var mouse = new THREE.Vector2();
+    var hovered = null;
+    var popup = document.getElementById('popup');
+
+    function setHover(mesh){
+      if(hovered === mesh) return;
+      if(hovered) hovered.material.opacity = hovered.userData.baseOpacity;
+      hovered = mesh;
+      if(hovered){
+        hovered.material.opacity = hovered.userData.hoverOpacity;
+        renderer.domElement.style.cursor = 'pointer';
+      } else {
+        renderer.domElement.style.cursor = 'grab';
+      }
+    }
+
+    function pickLot(clientX, clientY){
+      var rect = renderer.domElement.getBoundingClientRect();
+      mouse.x = ((clientX - rect.left) / rect.width) * 2 - 1;
+      mouse.y = -((clientY - rect.top) / rect.height) * 2 + 1;
+      raycaster.setFromCamera(mouse, camera);
+      var hits = raycaster.intersectObjects(lotMeshes);
+      return hits.length ? hits[0].object : null;
+    }
+
+    renderer.domElement.addEventListener('mousemove', function(e){
+      setHover(pickLot(e.clientX, e.clientY));
+    });
+
+    renderer.domElement.addEventListener('click', function(e){
+      var mesh = pickLot(e.clientX, e.clientY);
+      if(!mesh) return;
+      showPopup(mesh.userData.lot);
+    });
+
+    function showPopup(lot){
+      document.getElementById('popup-title').textContent = lot.nombre || 'Lote';
+      document.getElementById('popup-area').textContent = lot.area ? ('Área: ' + lot.area) : '';
+      document.getElementById('popup-desc').textContent = lot.descripcion || '';
+      var list = document.getElementById('popup-caract');
+      list.innerHTML = '';
+      (lot.caracteristicas || []).forEach(function(c){
+        var li = document.createElement('li');
+        li.textContent = c;
+        list.appendChild(li);
+      });
+      popup.classList.add('visible');
+    }
+    document.getElementById('popup-close').addEventListener('click', function(){
+      popup.classList.remove('visible');
+    });
+
+    // --- Render loop ---
+    function animate(){
+      requestAnimationFrame(animate);
+      controls.update();
+      renderer.render(scene, camera);
+    }
+    animate();
+
+    // --- Responsive ---
+    window.addEventListener('resize', function(){
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+  }
+})();
+</script>
+</body>
+</html>
