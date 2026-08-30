@@ -1,0 +1,34 @@
+{
+  "titulo": "sv_sj1",
+  "lotes": [
+    {
+      "id": "lote-1",
+      "nombre": "RESTAURANTE SABOR Y VISTA",
+      "area": "200 M2",
+      "descripcion": "SSS",
+      "caracteristicas": [
+        "Vista al lago",
+        "acceso a servicios"
+      ],
+      "color": "#2ecc71",
+      "poligono": [
+        {
+          "pitch": -41.14,
+          "yaw": 98.14
+        },
+        {
+          "pitch": -38.44,
+          "yaw": 91.39
+        },
+        {
+          "pitch": -60.24,
+          "yaw": -78.25
+        },
+        {
+          "pitch": -63.78,
+          "yaw": -92.62
+        }
+      ]
+    }
+  ]
+}
