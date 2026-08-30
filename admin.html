@@ -141,7 +141,7 @@
     <input type="text" id="fTitulo" placeholder="ej. Proyecto Vista Verde">
   </div>
   <button id="downloadBtn" class="primary">Descargar JSON</button>
-  <p class="sub">Súbelo luego a <code>data/&lt;nombre-archivo&gt;.json</code> en el repositorio, junto con <code>images/&lt;nombre-archivo&gt;.jpg</code>.</p>
+  <p class="sub">Súbelo luego a <code>data/&lt;nombre-archivo&gt;.json</code> en el repositorio, junto con <code>images/&lt;nombre-archivo&gt;.web</code>.</p>
 </div>
 
 <script src="https://unpkg.com/three@0.128.0/build/three.min.js"></script>
@@ -214,10 +214,10 @@
       panoSphere = new THREE.Mesh(geo, mat);
       scene.add(panoSphere);
       loadingEl.classList.add('hidden');
-      panelSub.textContent = 'images/' + id + '.jpg';
+      panelSub.textContent = 'images/' + id + '.web';
     }, undefined, function(){
       loadingEl.classList.add('hidden');
-      panelSub.textContent = 'No se encontró images/' + id + '.jpg (puedes seguir dibujando sobre negro para pruebas).';
+      panelSub.textContent = 'No se encontró images/' + id + '.web (puedes seguir dibujando sobre negro para pruebas).';
     });
 
     // intenta precargar datos existentes para seguir editando el mismo panorama
