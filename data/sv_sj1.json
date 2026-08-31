@@ -3,48 +3,90 @@
   "lotes": [
     {
       "id": "lote-1",
-      "nombre": "Restaurante Sabor y VIda",
-      "area": "200",
-      "descripcion": "sss",
+      "nombre": "RESTAURANTE SABOR Y VISTA",
+      "area": "1,500 M2",
+      "descripcion": "ssss",
       "caracteristicas": [
-        "Vista al lago",
-        "Servicios de agua y luz"
+        "Acceso pavimentado",
+        "Vista al lago"
       ],
       "color": "#2ecc71",
       "poligono": [
         {
-          "pitch": -38.39,
-          "yaw": -91.27
+          "pitch": -38.47,
+          "yaw": -90.75
         },
         {
-          "pitch": -40.68,
-          "yaw": -98.12
+          "pitch": -41.13,
+          "yaw": -97.7
         },
         {
-          "pitch": -84.28,
-          "yaw": -120.01
+          "pitch": -63.36,
+          "yaw": -99.18
         },
         {
-          "pitch": -87.24,
-          "yaw": -156.21
+          "pitch": -84.11,
+          "yaw": -114.65
         },
         {
-          "pitch": -63.66,
-          "yaw": 92.49
+          "pitch": -87.18,
+          "yaw": -145.17
         },
         {
-          "pitch": -59.01,
-          "yaw": 76.17
+          "pitch": -63.94,
+          "yaw": 92.16
         },
         {
-          "pitch": -84.72,
-          "yaw": -11.55
+          "pitch": -63.24,
+          "yaw": 78.26
         },
         {
-          "pitch": -83.33,
-          "yaw": -45.81
+          "pitch": -85.02,
+          "yaw": -18.2
+        },
+        {
+          "pitch": -83.09,
+          "yaw": -48.46
+        },
+        {
+          "pitch": -69.25,
+          "yaw": -79.91
         }
       ]
+    }
+  ],
+  "puntos": [
+    {
+      "id": "poi-1",
+      "tipo": "bomberos",
+      "nombre": "Estacion de bomberos",
+      "descripcion": "",
+      "pitch": -37,
+      "yaw": -69.67
+    },
+    {
+      "id": "poi-2",
+      "tipo": "parque",
+      "nombre": "Parque",
+      "descripcion": "",
+      "pitch": -67.58,
+      "yaw": -3.17
+    },
+    {
+      "id": "poi-3",
+      "tipo": "muelle",
+      "nombre": "Embarcadero a Panajachel",
+      "descripcion": "",
+      "pitch": -19.62,
+      "yaw": 163.57
+    },
+    {
+      "id": "poi-4",
+      "tipo": "escuela",
+      "nombre": "Colegio Nuevo Amanecer",
+      "descripcion": "",
+      "pitch": -15.58,
+      "yaw": -142.07
     }
   ]
 }
