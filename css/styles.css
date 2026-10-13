@@ -1,6 +1,6 @@
 :root{
-  --verde: #00000000;          /*2ecc71;*/
-  --verde-hover: #00000000;    /*#58e08c;*/
+  --verde: #2ecc71;          /*2ecc71;*/
+  --verde-hover: #58e08c;    /*#58e08c;*/
   --panel-bg: rgba(15, 23, 20, 0.92);
   --texto: #eef3ee;
   --borde: rgba(255,255,255,.12);
