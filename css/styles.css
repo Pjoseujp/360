@@ -1,6 +1,6 @@
 :root{
-  --verde: #2ecc71;          /*2ecc71;*/
-  --verde-hover: #58e08c;    /*#58e08c;*/
+  --verde: #2ecc71;
+  --verde-hover: #58e08c;
   --panel-bg: rgba(15, 23, 20, 0.92);
   --texto: #eef3ee;
   --borde: rgba(255,255,255,.12);
@@ -173,3 +173,53 @@ hr{ border:none; border-top:1px solid var(--borde); margin:4px 0; }
 }
 .lot-item span{ opacity:.75; font-size:11px; }
 .lot-item .x{ background:none; border:none; color:#e88; font-size:16px; padding:0 4px; cursor:pointer; }
+
+/* ---------- Atributo hidden (las reglas de .field lo anularían sin esto) ---------- */
+[hidden]{ display:none !important; }
+
+/* ---------- Aviso (toast) y tooltip de enlaces de cámara: modo cliente ---------- */
+#toast{
+  position:fixed; left:50%; bottom:28px; transform:translateX(-50%) translateY(10px);
+  max-width:min(420px, 90vw); padding:10px 16px; border-radius:10px;
+  background:var(--panel-bg); border:1px solid var(--borde);
+  font-size:13px; text-align:center; z-index:30;
+  opacity:0; pointer-events:none; transition:opacity .2s ease, transform .2s ease;
+}
+#toast.visible{ opacity:1; transform:translateX(-50%) translateY(0); }
+#tooltip{
+  position:fixed; z-index:12; pointer-events:none;
+  padding:5px 10px; border-radius:8px; font-size:12.5px; white-space:nowrap;
+  background:var(--panel-bg); border:1px solid var(--borde);
+  opacity:0; transition:opacity .12s ease;
+}
+#tooltip.visible{ opacity:1; }
+body.mode-admin #toast, body.mode-admin #tooltip{ display:none; }
+
+/* ---------- Brújula tipo cinta ---------- */
+#compass{
+  display:none; position:fixed; z-index:6; pointer-events:none;
+  top:58px; left:0; right:0; margin:0 auto;
+  width:min(560px, calc(100vw - 24px)); height:56px;
+  background:linear-gradient(to bottom, rgba(0,0,0,.38), rgba(0,0,0,0));
+  -webkit-mask-image:linear-gradient(to right, transparent, #000 16%, #000 84%, transparent);
+          mask-image:linear-gradient(to right, transparent, #000 16%, #000 84%, transparent);
+}
+#compass.visible{ display:block; }
+#compass canvas{ width:100%; height:100%; display:block; }
+body.mode-admin #compass{
+  top:12px; right:var(--panel-width);
+  width:min(560px, calc(100vw - var(--panel-width) - 24px));
+}
+
+/* ---------- Mira central (solo administrador) ---------- */
+#crosshair{ display:none; }
+body.mode-admin #crosshair{
+  display:block; position:fixed; z-index:6; pointer-events:none;
+  top:50%; left:calc((100vw - var(--panel-width)) / 2);
+  width:26px; height:26px; margin:-13px 0 0 -13px; opacity:.7;
+  filter:drop-shadow(0 0 2px rgba(0,0,0,.9));
+}
+body.mode-admin #crosshair::before,
+body.mode-admin #crosshair::after{ content:""; position:absolute; background:#fff; }
+body.mode-admin #crosshair::before{ left:12px; top:0; width:2px; height:26px; }
+body.mode-admin #crosshair::after{ top:12px; left:0; height:2px; width:26px; }
