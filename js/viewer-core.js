@@ -22,7 +22,8 @@ window.PanoCore = (function () {
     iglesia:     { emoji: "⛪", label: "Iglesia" },
     comercio:    { emoji: "🏪", label: "Comercio" },
     restaurante: { emoji: "🍽️", label: "Restaurante" },
-    visor:       { emoji: "📷", label: "Enlace a visor 360" }
+    // Enlace de navegación: al tocarlo se abre otro panorama 360 (campo "destino").
+    camara:      { emoji: "📷", label: "Cámara (enlace a otro 360)" }
   };
 
   // Convención de coordenadas:
@@ -40,7 +41,7 @@ window.PanoCore = (function () {
 
   function vectorToPitchYaw(v) {
     var r = v.length();
-    var pitch = 90 - THREE.MathUtils.radToDeg(Math.acos(v.y / r));
+    var pitch = 90 - THREE.MathUtils.radToDeg(Math.acos(THREE.MathUtils.clamp(v.y / r, -1, 1)));
     var yaw = THREE.MathUtils.radToDeg(Math.atan2(v.x, v.z));
     return { pitch: pitch, yaw: yaw };
   }
@@ -76,6 +77,27 @@ window.PanoCore = (function () {
     window.addEventListener("resize", onResize);
 
     return { scene: scene, camera: camera, renderer: renderer, controls: controls, onResize: onResize };
+  }
+
+  // Orienta la cámara hacia (pitch, yaw) y, opcionalmente, fija el zoom (fov).
+  // La cámara queda exactamente en el centro de la esfera (el "target" a 0.01 de distancia,
+  // igual al radio fijo de los controles), así no se desplaza ni se deforma la imagen.
+  function setView(camera, controls, pitch, yaw, fov) {
+    var d = pitchYawToVector(pitch, yaw, 1);
+    camera.position.set(0, 0, 0);
+    controls.target.copy(d).multiplyScalar(0.01);
+    if (typeof fov === "number" && isFinite(fov)) {
+      camera.fov = THREE.MathUtils.clamp(fov, MIN_FOV, MAX_FOV);
+      camera.updateProjectionMatrix();
+    }
+    controls.update();
+  }
+
+  // Hacia dónde mira la cámara ahora, en la misma convención pitch/yaw de los polígonos.
+  var _viewDir = new THREE.Vector3();
+  function getViewAngles(camera) {
+    camera.getWorldDirection(_viewDir);
+    return vectorToPitchYaw(_viewDir);
   }
 
   // Zoom con rueda del mouse (desktop).
@@ -207,7 +229,7 @@ window.PanoCore = (function () {
     ctx.fillStyle = "rgba(15,23,20,0.88)";
     ctx.fill();
     ctx.lineWidth = 7;
-    ctx.strokeStyle = "#ffffff";
+    ctx.strokeStyle = poi.tipo === "camara" ? "#2ecc71" : "#ffffff"; // verde = enlace a otro 360
     ctx.stroke();
     var info = ICON_TYPES[poi.tipo] || ICON_TYPES.generico;
     ctx.font = Math.floor(size * 0.52) + "px sans-serif";
@@ -260,6 +282,8 @@ window.PanoCore = (function () {
     pitchYawToVector: pitchYawToVector,
     vectorToPitchYaw: vectorToPitchYaw,
     createEngine: createEngine,
+    setView: setView,
+    getViewAngles: getViewAngles,
     attachWheelZoom: attachWheelZoom,
     attachTouchPinchZoom: attachTouchPinchZoom,
     loadPanoramaTexture: loadPanoramaTexture,

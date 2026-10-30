@@ -30,6 +30,51 @@ window.PanoAdmin = (function () {
     scene.add(savedGroup);
     scene.add(poiGroup);
 
+    // ---------- Vista de inicio y norte (por panorama) ----------
+    var vistaInicial = null;   // {pitch, yaw, fov} o null
+    var norteYaw = null;       // yaw hacia el que apunta el norte, o null
+    var compass = window.PanoCompass.create(document.getElementById("compass"));
+    var startViewInfo = document.getElementById("startViewInfo");
+    var northInfo = document.getElementById("northInfo");
+    var DEFAULT_PITCH = 0, DEFAULT_YAW = 180;
+
+    function round2(n) { return Math.round(n * 100) / 100; }
+
+    function updateViewInfo() {
+      startViewInfo.textContent = vistaInicial
+        ? "Vista inicial definida (dirección " + Math.round(vistaInicial.yaw) + "°, inclinación " +
+          Math.round(vistaInicial.pitch) + "°, zoom " + Math.round(vistaInicial.fov) + "°)."
+        : "Sin vista inicial: se usa la predeterminada.";
+      northInfo.textContent = norteYaw !== null
+        ? "Norte definido. La brújula se mostrará al cliente."
+        : "Norte sin definir: la brújula no se mostrará al cliente.";
+      compass.setVisible(norteYaw !== null);
+    }
+
+    function applyStartView() {
+      if (vistaInicial) window.PanoCore.setView(camera, controls, vistaInicial.pitch, vistaInicial.yaw, vistaInicial.fov);
+      else window.PanoCore.setView(camera, controls, DEFAULT_PITCH, DEFAULT_YAW);
+    }
+    applyStartView();
+    updateViewInfo();
+
+    document.getElementById("setStartView").addEventListener("click", function () {
+      var a = window.PanoCore.getViewAngles(camera);
+      vistaInicial = { pitch: round2(a.pitch), yaw: round2(a.yaw), fov: Math.round(camera.fov * 10) / 10 };
+      updateViewInfo();
+    });
+    document.getElementById("goStartView").addEventListener("click", applyStartView);
+    document.getElementById("clearStartView").addEventListener("click", function () {
+      vistaInicial = null; updateViewInfo();
+    });
+    document.getElementById("setNorth").addEventListener("click", function () {
+      norteYaw = round2(window.PanoCore.getViewAngles(camera).yaw); // el norte es hacia donde apunta la mira central
+      updateViewInfo();
+    });
+    document.getElementById("clearNorth").addEventListener("click", function () {
+      norteYaw = null; updateViewInfo();
+    });
+
     function loadPanorama(id) {
       loadingEl.classList.remove("hidden");
       panelSub.textContent = "Cargando imagen…";
@@ -50,11 +95,21 @@ window.PanoAdmin = (function () {
           savedLots = (data && data.lotes) || [];
           savedPoints = (data && data.puntos) || [];
           document.getElementById("fTitulo").value = (data && data.titulo) || "";
+          var v = data && data.vista;
+          vistaInicial = (v && typeof v.yaw === "number")
+            ? { pitch: typeof v.pitch === "number" ? v.pitch : 0, yaw: v.yaw, fov: typeof v.fov === "number" ? v.fov : camera.fov }
+            : null;
+          norteYaw = (data && typeof data.norte === "number") ? data.norte : null;
+          updateViewInfo();
+          applyStartView();
           renderLotList();
           renderPoiList();
           rebuildSavedGroup();
           rebuildPoiGroup();
-        }).catch(function () { savedLots = []; savedPoints = []; renderLotList(); renderPoiList(); });
+        }).catch(function () {
+          savedLots = []; savedPoints = []; vistaInicial = null; norteYaw = null;
+          updateViewInfo(); renderLotList(); renderPoiList();
+        });
     }
     loadPanorama(imgId);
 
@@ -246,7 +301,7 @@ window.PanoAdmin = (function () {
       savedLots.forEach(function (lot, idx) {
         var item = document.createElement("div");
         item.className = "lot-item";
-        item.innerHTML = "<div>" + lot.nombre + "<br><span>" + lot.poligono.length + " vértices · " + (lot.area || "sin área") + "</span></div>";
+        item.innerHTML = "<div>" + esc(lot.nombre) + "<br><span>" + lot.poligono.length + " vértices · " + esc(lot.area || "sin área") + "</span></div>";
         var actions = document.createElement("div");
         actions.style.display = "flex";
         var edit = document.createElement("button");
@@ -279,6 +334,20 @@ window.PanoAdmin = (function () {
     var poiActionBtn = document.getElementById("poiActionBtn");
     var poiCancelBtn = document.getElementById("poiCancelBtn");
     var poiStatus = document.getElementById("poiStatus");
+    var poiDestinoField = document.getElementById("poiDestinoField");
+    var poiDestinoInput = document.getElementById("poiDestino");
+
+    function esc(t) {
+      return String(t == null ? "" : t).replace(/[&<>"']/g, function (c) {
+        return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+      });
+    }
+
+    // El campo "Destino" solo aplica al tipo cámara (enlace a otro panorama 360).
+    function updateDestinoVisibility() {
+      poiDestinoField.hidden = poiTipoSelect.value !== "camara";
+    }
+    poiTipoSelect.addEventListener("change", updateDestinoVisibility);
 
     Object.keys(window.PanoCore.ICON_TYPES).forEach(function (key) {
       var opt = document.createElement("option");
@@ -299,7 +368,8 @@ window.PanoAdmin = (function () {
 
     function resetPoiForm() {
       placingPoi = false; editingPoiIndex = null;
-      poiNombreInput.value = ""; poiDescInput.value = "";
+      poiNombreInput.value = ""; poiDescInput.value = ""; poiDestinoInput.value = "";
+      updateDestinoVisibility();
       poiActionBtn.textContent = "Colocar punto en el mapa";
       poiCancelBtn.disabled = true;
       poiStatus.classList.remove("active");
@@ -313,12 +383,23 @@ window.PanoAdmin = (function () {
         poi.tipo = poiTipoSelect.value;
         poi.nombre = poiNombreInput.value.trim() || poi.nombre;
         poi.descripcion = poiDescInput.value.trim();
+        if (poi.tipo === "camara") {
+          var dest = poiDestinoInput.value.trim();
+          if (!dest) { alert("Indica el nombre del panorama de destino."); return; }
+          poi.destino = dest;
+        } else {
+          delete poi.destino;
+        }
         rebuildPoiGroup();
         renderPoiList();
         resetPoiForm();
         return;
       }
       if (!poiNombreInput.value.trim()) { alert("Escribe un nombre para el punto."); return; }
+      if (poiTipoSelect.value === "camara" && !poiDestinoInput.value.trim()) {
+        alert("Indica el nombre del panorama de destino (el mismo nombre de su archivo .webp, sin extensión).");
+        return;
+      }
       placingPoi = true;
       poiActionBtn.textContent = "Toca la imagen para colocarlo…";
       poiCancelBtn.disabled = false;
@@ -338,7 +419,8 @@ window.PanoAdmin = (function () {
         var item = document.createElement("div");
         item.className = "lot-item";
         var info = window.PanoCore.ICON_TYPES[poi.tipo] || window.PanoCore.ICON_TYPES.generico;
-        item.innerHTML = "<div>" + info.emoji + " " + poi.nombre + "<br><span>" + info.label + "</span></div>";
+        item.innerHTML = "<div>" + info.emoji + " " + esc(poi.nombre) + "<br><span>" + esc(info.label) +
+          (poi.destino ? " → " + esc(poi.destino) : "") + "</span></div>";
         var actions = document.createElement("div");
         actions.style.display = "flex";
         var edit = document.createElement("button");
@@ -348,6 +430,8 @@ window.PanoAdmin = (function () {
           poiTipoSelect.value = poi.tipo;
           poiNombreInput.value = poi.nombre;
           poiDescInput.value = poi.descripcion || "";
+          poiDestinoInput.value = poi.destino || "";
+          updateDestinoVisibility();
           poiActionBtn.textContent = "Guardar cambios";
           poiCancelBtn.disabled = false;
         });
@@ -434,6 +518,7 @@ window.PanoAdmin = (function () {
           pitch: Math.round(py.pitch * 100) / 100,
           yaw: Math.round(py.yaw * 100) / 100
         };
+        if (poi.tipo === "camara") poi.destino = poiDestinoInput.value.trim();
         savedPoints.push(poi);
         rebuildPoiGroup();
         renderPoiList();
@@ -445,6 +530,8 @@ window.PanoAdmin = (function () {
     document.getElementById("downloadBtn").addEventListener("click", function () {
       var payload = {
         titulo: document.getElementById("fTitulo").value.trim() || undefined,
+        vista: vistaInicial || undefined,
+        norte: norteYaw !== null ? norteYaw : undefined,
         lotes: savedLots,
         puntos: savedPoints
       };
@@ -463,6 +550,9 @@ window.PanoAdmin = (function () {
       requestAnimationFrame(animate);
       controls.update();
       renderer.render(scene, camera);
+      if (norteYaw !== null) {
+        compass.update(window.PanoCompass.headingFrom(norteYaw, window.PanoCore.getViewAngles(camera).yaw));
+      }
     })();
   }
 
