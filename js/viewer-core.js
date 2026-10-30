@@ -21,7 +21,8 @@ window.PanoCore = (function () {
     salud:       { emoji: "🏥", label: "Centro de salud" },
     iglesia:     { emoji: "⛪", label: "Iglesia" },
     comercio:    { emoji: "🏪", label: "Comercio" },
-    restaurante: { emoji: "🍽️", label: "Restaurante" }
+    restaurante: { emoji: "🍽️", label: "Restaurante" },
+    visor:       { emoji: "📷", label: "Enlace a visor 360" }
   };
 
   // Convención de coordenadas:
