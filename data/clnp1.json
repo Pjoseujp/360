@@ -39,5 +39,14 @@
       ]
     }
   ],
-  "puntos": []
+  "puntos": [
+    {
+      "id": "poi-1",
+      "tipo": "visor",
+      "nombre": "mapa2",
+      "descripcion": "",
+      "pitch": -32.71,
+      "yaw": 127.06
+    }
+  ]
 }
