@@ -10,6 +10,11 @@
 
   <div id="viewer"></div>
 
+  <!-- Brújula tipo cinta (se muestra solo si el panorama tiene norte definido) -->
+  <div id="compass"><canvas id="compass-canvas"></canvas></div>
+  <!-- Mira central: solo en modo administrador, para apuntar al fijar vista/norte -->
+  <div id="crosshair"></div>
+
   <!-- ===== Modo cliente ===== -->
   <div id="hud">
     <h1 id="hud-title">Visualizador de lote</h1>
@@ -46,6 +51,22 @@
 
     <hr>
 
+    <div>
+      <h1 style="margin-bottom:2px;">Vista inicial y norte</h1>
+      <p class="sub">Gira la imagen y usa la mira (+) del centro como referencia.</p>
+    </div>
+    <button id="setStartView" class="primary">📍 Establecer vista de inicio</button>
+    <div class="row">
+      <button id="goStartView">Ir a vista inicial</button>
+      <button id="clearStartView" class="danger">Quitar</button>
+    </div>
+    <p class="sub" id="startViewInfo"></p>
+    <button id="setNorth" class="primary">🧭 Fijar norte (hacia la mira +)</button>
+    <button id="clearNorth" class="danger">Quitar norte</button>
+    <p class="sub" id="northInfo"></p>
+
+    <hr>
+
     <div id="drawStatus">Editando polígono — <span id="vertCount">0</span> vértices. Toca la imagen para agregar puntos; arrastra un punto blanco para ajustarlo.</div>
 
     <button id="startDraw" class="primary">+ Nuevo lote (dibujar)</button>
@@ -73,11 +94,6 @@
     </div>
     <button id="addLotBtn" class="primary" disabled>Agregar lote a la lista</button>
 
-    <div class="field">
-      <label>Descripción (opcional)</label>
-      <textarea id="poiDesc" rows="2" placeholder="Detalles del sitio…"></textarea>
-    </div>
-    
     <hr>
 
     <div>
@@ -97,6 +113,10 @@
     <div class="field">
       <label>Tipo</label>
       <select id="poiTipo"></select>
+    </div>
+    <div class="field" id="poiDestinoField" hidden>
+      <label>Destino: nombre del otro panorama (img)</label>
+      <input type="text" id="poiDestino" placeholder="ej. sv_sj2">
     </div>
     <div class="field">
       <label>Nombre</label>
@@ -126,6 +146,10 @@
     <p class="sub">Súbelo a <code>data/&lt;img&gt;.json</code> en el repositorio, junto con <code>images/&lt;img&gt;.webp</code>.</p>
   </div>
 
+  <!-- ===== Modo cliente: aviso y tooltip ===== -->
+  <div id="toast"></div>
+  <div id="tooltip"></div>
+
   <!-- ===== Compartido: carga / error ===== -->
   <div id="loading">
     <div class="spinner"></div>
@@ -141,6 +165,7 @@
   <script src="https://unpkg.com/three@0.128.0/build/three.min.js"></script>
   <script src="https://unpkg.com/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
   <script src="js/viewer-core.js"></script>
+  <script src="js/compass.js"></script>
   <script src="js/client.js"></script>
   <script src="js/admin.js"></script>
   <script src="js/main.js"></script>
