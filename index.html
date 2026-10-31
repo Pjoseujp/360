@@ -10,6 +10,9 @@
 
   <div id="viewer"></div>
 
+  <!-- Íconos animados de cámara (WebP): imágenes HTML ubicadas sobre el panorama -->
+  <div id="overlay-icons"></div>
+
   <!-- Brújula tipo cinta (se muestra solo si el panorama tiene norte definido) -->
   <div id="compass"><canvas id="compass-canvas"></canvas></div>
   <!-- Mira central: solo en modo administrador, para apuntar al fijar vista/norte -->
@@ -151,6 +154,20 @@
     </div>
     <button id="downloadBtn" class="primary">Descargar JSON</button>
     <p class="sub" id="downloadInfo">Nada se guarda en el servidor: al terminar, descarga el JSON y súbelo a <code>data/&lt;img&gt;.json</code> en el repositorio (con la vista inicial y el norte incluidos).</p>
+  </div>
+
+  <!-- ===== Modo cliente: menú de opciones (esquina inferior derecha) ===== -->
+  <div id="menu">
+    <div id="menuPanel" role="group" aria-label="Opciones de visualización">
+      <p class="menu-title">Mostrar</p>
+      <label class="menu-item"><input type="checkbox" id="optTitle" checked><span class="menu-text">Título</span><span class="switch"></span></label>
+      <label class="menu-item"><input type="checkbox" id="optCompass" checked><span class="menu-text">Brújula</span><span class="switch"></span></label>
+      <label class="menu-item"><input type="checkbox" id="optPoi" checked><span class="menu-text">Puntos de interés</span><span class="switch"></span></label>
+      <label class="menu-item"><input type="checkbox" id="optCam" checked><span class="menu-text">Cámaras (enlaces a otros 360)</span><span class="switch"></span></label>
+    </div>
+    <button id="menuBtn" aria-label="Menú de opciones" aria-expanded="false" aria-controls="menuPanel">
+      <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/></svg>
+    </button>
   </div>
 
   <!-- ===== Modo cliente: aviso y tooltip ===== -->
