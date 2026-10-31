@@ -1,6 +1,6 @@
 // js/compass.js
 // Brújula tipo cinta (como en los juegos shooter): una franja horizontal que se desplaza
-// según hacia dónde mira la cámara, con N / NE / E / SE / S / SO / O / NO y grados.
+// (diseñada para 42 px de alto) según hacia dónde mira la cámara, con N / NE / E / SE / S / SO / O / NO y grados.
 window.PanoCompass = (function () {
   "use strict";
 
@@ -53,7 +53,7 @@ window.PanoCompass = (function () {
         var isCard = n % 90 === 0;
         var isInter = !isCard && n % 45 === 0;
         var isMid = n % 15 === 0;
-        var len = isCard ? 12 : (isInter ? 9 : (isMid ? 7 : 4));
+        var len = isCard ? 9 : (isInter ? 7 : (isMid ? 5 : 3));
         var isNorth = n === 0;
 
         ctx.strokeStyle = isNorth ? "#ff6b5b" : "rgba(255,255,255," + (isCard ? 1 : 0.75) + ")";
@@ -65,13 +65,13 @@ window.PanoCompass = (function () {
 
         if (isCard || isInter) {
           var name = NAMES[n / 45];
-          ctx.font = (isCard ? "700 17px" : "600 12px") + " 'Segoe UI', Roboto, Arial, sans-serif";
+          ctx.font = (isCard ? "700 15px" : "600 11px") + " 'Segoe UI', Roboto, Arial, sans-serif";
           ctx.fillStyle = isNorth ? "#ff6b5b" : (isCard ? "#ffffff" : "rgba(255,255,255,0.8)");
-          ctx.fillText(name, x, isCard ? 33 : 35);
+          ctx.fillText(name, x, isCard ? 25 : 26);
         } else if (n % 30 === 0) {
-          ctx.font = "500 11px 'Segoe UI', Roboto, Arial, sans-serif";
+          ctx.font = "500 10px 'Segoe UI', Roboto, Arial, sans-serif";
           ctx.fillStyle = "rgba(255,255,255,0.65)";
-          ctx.fillText(String(n), x, 36);
+          ctx.fillText(String(n), x, 27);
         }
       }
 
@@ -79,16 +79,16 @@ window.PanoCompass = (function () {
       ctx.shadowBlur = 3;
       ctx.fillStyle = "#ffffff";
       ctx.beginPath();
-      ctx.moveTo(half - 5, 15);
-      ctx.lineTo(half + 5, 15);
-      ctx.lineTo(half, 22);
+      ctx.moveTo(half - 4.5, 11);
+      ctx.lineTo(half + 4.5, 11);
+      ctx.lineTo(half, 16);
       ctx.closePath();
       ctx.fill();
 
       var idx = Math.round(heading / 45) % 8;
-      ctx.font = "600 12px 'Segoe UI', Roboto, Arial, sans-serif";
+      ctx.font = "600 11px 'Segoe UI', Roboto, Arial, sans-serif";
       ctx.fillStyle = "#ffffff";
-      ctx.fillText(NAMES[idx] + "  " + Math.round(heading) % 360 + "°", half, 7);
+      ctx.fillText(NAMES[idx] + "  " + Math.round(heading) % 360 + "°", half, 5);
     }
 
     return { update: update, setVisible: setVisible };

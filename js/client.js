@@ -7,6 +7,7 @@ window.PanoClient = (function () {
   var TAP_THRESHOLD = 6;                    // px máximos para considerar un "tap" y no un arrastre de cámara
   var DEFAULT_TITLE = document.title;       // título de pestaña por defecto (si el JSON no trae "titulo")
   var DEFAULT_HUD = "Visualizador de lote";
+  var CAMERA_ICON = "icons/camara.webp";    // ícono animado opcional para los enlaces entre panoramas
 
   function init(firstId) {
     var container = document.getElementById("viewer");
@@ -26,6 +27,8 @@ window.PanoClient = (function () {
     var content = new THREE.Group(); // todo lo de la escena actual (panorama + lotes + puntos)
     scene.add(content);
     var interactive = [];            // mallas/sprites clicables de la escena actual
+    var overlayEl = document.getElementById("overlay-icons");
+    var overlays = [];               // sprites de cámara que se muestran como imagen HTML animada
     var currentId = null;            // panorama mostrado actualmente
     var loadToken = 0;               // evita que una carga lenta pise a una más reciente
 
@@ -40,6 +43,8 @@ window.PanoClient = (function () {
       });
       while (content.children.length) content.remove(content.children[0]);
       interactive = [];
+      overlays = [];
+      overlayEl.innerHTML = "";
     }
 
     function urlFor(id) {
@@ -94,10 +99,12 @@ window.PanoClient = (function () {
         interactive.push(visuals.fillMesh);
       });
 
+      var sceneToken = loadToken;
       (data.puntos || []).forEach(function (poi) {
         var sprite = window.PanoCore.createPoiSprite(poi);
         content.add(sprite);
         interactive.push(sprite);
+        if (poi.tipo === "camara") attachAnimatedIcon(sprite, sceneToken);
       });
 
       document.title = data.titulo || DEFAULT_TITLE;
@@ -114,10 +121,46 @@ window.PanoClient = (function () {
 
       // Brújula: solo si el panorama define el norte.
       northYaw = (typeof data.norte === "number") ? data.norte : null;
-      compass.setVisible(northYaw !== null);
+      updateMenuAvailability();
+      applyOptions(); // aplica lo que el visitante tenga activado/desactivado en el menú
 
       currentId = id;
       loadingEl.classList.add("hidden");
+    }
+
+    // Si existe icons/camara.webp, la cámara se muestra como imagen HTML (el navegador anima el
+    // WebP; dentro de WebGL no se animaría). El sprite se deja invisible pero tocable, así que
+    // el toque, el hover y el menú funcionan igual que con los demás íconos.
+    function attachAnimatedIcon(sprite, token) {
+      window.PanoCore.loadIcon(CAMERA_ICON).then(function (img) {
+        if (!img || token !== loadToken || interactive.indexOf(sprite) === -1) return; // sin archivo, o ya se cambió de panorama
+        var wrap = document.createElement("div");
+        wrap.className = "cam-icon";
+        var im = document.createElement("img");
+        im.src = CAMERA_ICON; im.alt = ""; im.draggable = false;
+        wrap.appendChild(im);
+        overlayEl.appendChild(wrap);
+        sprite.userData.overlayEl = wrap;
+        sprite.material.opacity = 0;
+        wrap.hidden = sprite.visible === false; // respeta lo que el menú tenga desactivado
+        overlays.push(sprite);
+      });
+    }
+
+    function updateOverlays() {
+      if (!overlays.length) return;
+      // Mismo tamaño aparente que un sprite de POI_SIZE unidades: se escala con el zoom.
+      var pxPerUnit = container.clientHeight / (2 * window.PanoCore.RADIUS_POLY * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)));
+      var size = Math.round(window.PanoCore.POI_SIZE * pxPerUnit);
+      overlays.forEach(function (o) {
+        if (o.visible === false) return;
+        var el = o.userData.overlayEl;
+        var a = window.PanoCore.worldToScreen(o.position, camera, renderer);
+        if (a.behind) { el.classList.add("behind"); return; }
+        el.classList.remove("behind");
+        if (el._size !== size) { el.style.width = size + "px"; el.style.height = size + "px"; el._size = size; }
+        el.style.transform = "translate3d(" + Math.round(a.x - size / 2) + "px," + Math.round(a.y - size / 2) + "px,0)";
+      });
     }
 
     var toastTimer = null;
@@ -142,7 +185,8 @@ window.PanoClient = (function () {
     function isPoi(obj) { return !!obj.userData.poi; }
     // Íconos y polígonos comparten el mismo radio: si se superponen, gana el ícono.
     function pickInteractive(e) {
-      return window.PanoCore.pickObject(e.clientX, e.clientY, renderer, camera, raycaster, mouse, interactive, isPoi);
+      var visibles = interactive.filter(function (o) { return o.visible !== false; });
+      return window.PanoCore.pickObject(e.clientX, e.clientY, renderer, camera, raycaster, mouse, visibles, isPoi);
     }
 
     function isCameraLink(obj) {
@@ -155,11 +199,13 @@ window.PanoClient = (function () {
       if (hovered) {
         if (hovered.userData.lot) hovered.material.opacity = hovered.userData.baseOpacity;
         else if (hovered.userData.poi) hovered.scale.set(hovered.userData.baseScale, hovered.userData.baseScale, 1);
+        if (hovered.userData.overlayEl) hovered.userData.overlayEl.classList.remove("hover");
       }
       hovered = obj;
       if (hovered) {
         if (hovered.userData.lot) hovered.material.opacity = hovered.userData.hoverOpacity;
         else if (hovered.userData.poi) hovered.scale.set(hovered.userData.hoverScale, hovered.userData.hoverScale, 1);
+        if (hovered.userData.overlayEl) hovered.userData.overlayEl.classList.add("hover");
         renderer.domElement.style.cursor = "pointer";
       } else {
         renderer.domElement.style.cursor = "grab";
@@ -284,11 +330,71 @@ window.PanoClient = (function () {
       }
     });
 
+    // ---------- Menú de opciones: mostrar/ocultar por separado ----------
+    // Cámaras (enlaces) y puntos de interés se controlan por separado, para poder ocultar
+    // los puntos de interés sin perder los enlaces a otros panoramas.
+    var opts = { title: true, compass: true, poi: true, cam: true };
+    var optInputs = {
+      title: document.getElementById("optTitle"),
+      compass: document.getElementById("optCompass"),
+      poi: document.getElementById("optPoi"),
+      cam: document.getElementById("optCam")
+    };
+
+    function hasPois(camaras) {
+      return interactive.some(function (o) {
+        var p = o.userData.poi;
+        return !!p && ((p.tipo === "camara") === camaras);
+      });
+    }
+
+    // Las opciones sin nada que mostrar en este panorama quedan deshabilitadas (conservan su valor).
+    function updateMenuAvailability() {
+      optInputs.poi.disabled = !hasPois(false);
+      optInputs.cam.disabled = !hasPois(true);
+      optInputs.compass.disabled = northYaw === null;
+    }
+
+    function applyOptions() {
+      interactive.forEach(function (o) {
+        var p = o.userData.poi;
+        if (p) {
+          o.visible = (p.tipo === "camara") ? opts.cam : opts.poi;
+          if (o.userData.overlayEl) o.userData.overlayEl.hidden = !o.visible;
+        }
+      });
+      compass.setVisible(opts.compass && northYaw !== null);
+      if (opts.title) document.body.classList.remove("hide-title"); else document.body.classList.add("hide-title");
+      if (hovered && hovered.visible === false) setHover(null);
+      if (openTarget && openTarget.visible === false) closePopup();
+    }
+
+    Object.keys(optInputs).forEach(function (key) {
+      optInputs[key].addEventListener("change", function () {
+        opts[key] = optInputs[key].checked;
+        applyOptions();
+      });
+    });
+
+    var menuEl = document.getElementById("menu");
+    var menuBtn = document.getElementById("menuBtn");
+    function setMenuOpen(open) {
+      if (open) menuEl.classList.add("open"); else menuEl.classList.remove("open");
+      menuBtn.setAttribute("aria-expanded", open ? "true" : "false");
+    }
+    menuBtn.addEventListener("click", function () { setMenuOpen(!menuEl.classList.contains("open")); });
+    document.addEventListener("pointerdown", function (e) {
+      if (menuEl.classList.contains("open") && !menuEl.contains(e.target)) setMenuOpen(false);
+    });
+    document.addEventListener("keydown", function (e) { if (e.key === "Escape") setMenuOpen(false); });
+
     // ---------- Loop de render ----------
     (function animate() {
       requestAnimationFrame(animate);
       controls.update();
       renderer.render(scene, camera);
+
+      updateOverlays();
 
       if (northYaw !== null) {
         compass.update(window.PanoCompass.headingFrom(northYaw, window.PanoCore.getViewAngles(camera).yaw));
