@@ -6,6 +6,9 @@ window.PanoCore = (function () {
 
   var RADIUS_PANO = 500;   // radio de la esfera panorámica
   var RADIUS_POLY = 496;   // radio de los polígonos e íconos (ligeramente dentro, evita z-fighting)
+  var POI_SIZE = 34;       // tamaño de los íconos en unidades del mundo (se escala con el zoom)
+  var POI_HOVER_SIZE = 40; // tamaño al pasar el mouse
+  var ICON_DIR = "icons/"; // carpeta de íconos personalizados (opcional)
   var INITIAL_FOV = 75;    // FOV inicial: no arranca en el zoom más alejado posible
   var MIN_FOV = 35;        // más zoom (acercar)
   var MAX_FOV = 100;       // menos zoom (alejar)
@@ -217,13 +220,41 @@ window.PanoCore = (function () {
     return { fillMesh: fillMesh, outline: outline, centroid: centroid };
   }
 
-  // Dibuja el ícono (emoji sobre un círculo) de un punto de interés en un canvas,
-  // usado como textura de un THREE.Sprite (siempre mira hacia la cámara).
-  function createPoiSprite(poi) {
-    var size = 128;
-    var canvas = document.createElement("canvas");
-    canvas.width = canvas.height = size;
-    var ctx = canvas.getContext("2d");
+  // ---------- Íconos personalizados (opcionales) ----------
+  // Para cada tipo se busca un archivo en icons/ (PNG con fondo transparente). Si no existe,
+  // se usa el emoji de ICON_TYPES, así que se pueden ir agregando de a uno.
+  //   icons/<tipo>.png       p. ej. icons/parque.png, icons/muelle.png, icons/bomberos.png
+  //   icons/camara.webp      (animado) se muestra en el visor como imagen HTML; ver client.js
+  //   icons/camara.png       alternativa estática para las cámaras
+  function iconCandidates(tipo) {
+    return tipo === "camara"
+      ? [ICON_DIR + "camara.webp", ICON_DIR + "camara.png"]
+      : [ICON_DIR + tipo + ".png"];
+  }
+
+  var _iconCache = {};
+  // Carga una imagen una sola vez; si el archivo no existe resuelve null (sin error).
+  function loadIcon(url) {
+    if (!_iconCache[url]) {
+      _iconCache[url] = new Promise(function (resolve) {
+        var img = new Image();
+        img.onload = function () { resolve(img); };
+        img.onerror = function () { resolve(null); };
+        img.src = url;
+      });
+    }
+    return _iconCache[url];
+  }
+
+  // Primera imagen existente de la lista (en orden), o null.
+  function loadFirstIcon(urls) {
+    return urls.reduce(function (p, url) {
+      return p.then(function (found) { return found || loadIcon(url); });
+    }, Promise.resolve(null));
+  }
+
+  function drawEmojiBadge(ctx, size, poi) {
+    ctx.clearRect(0, 0, size, size);
     ctx.beginPath();
     ctx.arc(size / 2, size / 2, size / 2 - 8, 0, Math.PI * 2);
     ctx.fillStyle = "rgba(15,23,20,0.88)";
@@ -236,18 +267,47 @@ window.PanoCore = (function () {
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     ctx.fillText(info.emoji, size / 2, size / 2 + 4);
+  }
+
+  // Dibuja el ícono propio tal cual (sin círculo), conservando su proporción y con una sombra suave.
+  function drawIconImage(ctx, size, img) {
+    ctx.clearRect(0, 0, size, size);
+    var iw = img.naturalWidth || img.width, ih = img.naturalHeight || img.height;
+    var k = Math.min((size - 16) / iw, (size - 16) / ih);
+    var w = iw * k, h = ih * k;
+    ctx.save();
+    ctx.shadowColor = "rgba(0,0,0,0.45)";
+    ctx.shadowBlur = 8;
+    ctx.drawImage(img, (size - w) / 2, (size - h) / 2, w, h);
+    ctx.restore();
+  }
+
+  // Ícono de un punto de interés: se crea de inmediato con el emoji y, si hay un archivo
+  // personalizado en icons/, se redibuja con él en cuanto termina de cargar.
+  function createPoiSprite(poi) {
+    var size = 256;
+    var canvas = document.createElement("canvas");
+    canvas.width = canvas.height = size;
+    var ctx = canvas.getContext("2d");
+    drawEmojiBadge(ctx, size, poi);
 
     var texture = new THREE.CanvasTexture(canvas);
     texture.needsUpdate = true;
     var material = new THREE.SpriteMaterial({ map: texture, transparent: true, depthTest: false });
     var sprite = new THREE.Sprite(material);
     sprite.position.copy(pitchYawToVector(poi.pitch, poi.yaw, RADIUS_POLY));
-    sprite.scale.set(34, 34, 1);
+    sprite.scale.set(POI_SIZE, POI_SIZE, 1);
     sprite.renderOrder = 5;
     sprite.userData.poi = poi;
     sprite.userData.centroid = sprite.position;
-    sprite.userData.baseScale = 34;
-    sprite.userData.hoverScale = 40;
+    sprite.userData.baseScale = POI_SIZE;
+    sprite.userData.hoverScale = POI_HOVER_SIZE;
+
+    loadFirstIcon(iconCandidates(poi.tipo)).then(function (img) {
+      if (!img) return; // sin archivo propio: se queda el emoji
+      drawIconImage(ctx, size, img);
+      texture.needsUpdate = true;
+    });
     return sprite;
   }
 
@@ -323,6 +383,8 @@ window.PanoCore = (function () {
     createPickingSphere: createPickingSphere,
     buildLotVisuals: buildLotVisuals,
     createPoiSprite: createPoiSprite,
+    loadIcon: loadIcon,
+    POI_SIZE: POI_SIZE,
     createBadgeSprite: createBadgeSprite,
     pickObject: pickObject,
     worldToScreen: worldToScreen
