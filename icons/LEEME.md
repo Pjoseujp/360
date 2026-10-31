@@ -8,7 +8,8 @@ Coloca aquí tus propios íconos. Los que falten usan su emoji.
 - `camara.webp` → WebP animado para los enlaces a otros panoramas
   (alternativa estática: `camara.png`).
 
-    convertir gif animado a WebP con ezgif.com
+    convertir gif animado a WebP con https://ezgif.com/
+    
     convertir imagenes 360 de jpg a WebP en https://squoosh.app/
 
   
