@@ -30,7 +30,37 @@ window.PanoAdmin = (function () {
     scene.add(savedGroup);
     scene.add(poiGroup);
 
+    // ---------- Cambios sin descargar ----------
+    // Nada se guarda en un servidor: los datos viven en este editor hasta que se descarga el JSON.
+    var dirty = false;
+    var downloadBtn = document.getElementById("downloadBtn");
+    var downloadInfo = document.getElementById("downloadInfo");
+    var DOWNLOAD_HINT = downloadInfo.innerHTML;
+    function setDirty(v) {
+      dirty = v;
+      downloadBtn.textContent = v ? "Descargar JSON ●" : "Descargar JSON";
+      if (v) {
+        downloadInfo.className = "sub dirty";
+        downloadInfo.textContent = "● Hay cambios sin descargar. Descarga el JSON y súbelo a data/ para que el cliente los vea.";
+      } else {
+        downloadInfo.className = "sub";
+        downloadInfo.innerHTML = DOWNLOAD_HINT;
+      }
+    }
+    window.addEventListener("beforeunload", function (e) {
+      if (dirty) { e.preventDefault(); e.returnValue = ""; }
+    });
+    document.getElementById("fTitulo").addEventListener("input", function () { setDirty(true); });
+
+    function openDestination(dest) {
+      var msg = '¿Abrir "' + dest + '" en el editor?' + (dirty ? "\n\nTienes cambios sin descargar que se perderán." : "");
+      if (!window.confirm(msg)) return;
+      dirty = false; // ya confirmó: evita el aviso doble del navegador
+      window.location.href = window.location.pathname + "?img=" + encodeURIComponent(dest) + "&mode=admin";
+    }
+
     // ---------- Vista de inicio y norte (por panorama) ----------
+    var northMarker = null;    // insignia "N" en el horizonte, solo en el editor
     var vistaInicial = null;   // {pitch, yaw, fov} o null
     var norteYaw = null;       // yaw hacia el que apunta el norte, o null
     var compass = window.PanoCompass.create(document.getElementById("compass"));
@@ -46,9 +76,22 @@ window.PanoAdmin = (function () {
           Math.round(vistaInicial.pitch) + "°, zoom " + Math.round(vistaInicial.fov) + "°)."
         : "Sin vista inicial: se usa la predeterminada.";
       northInfo.textContent = norteYaw !== null
-        ? "Norte definido. La brújula se mostrará al cliente."
+        ? "Norte definido (insignia N sobre el horizonte). La brújula se mostrará al cliente."
         : "Norte sin definir: la brújula no se mostrará al cliente.";
       compass.setVisible(norteYaw !== null);
+      updateNorthMarker();
+    }
+
+    function updateNorthMarker() {
+      if (northMarker) {
+        scene.remove(northMarker);
+        northMarker.material.map.dispose(); northMarker.material.dispose();
+        northMarker = null;
+      }
+      if (norteYaw !== null) {
+        northMarker = window.PanoCore.createBadgeSprite("N", "#d9483b", 0, norteYaw);
+        scene.add(northMarker);
+      }
     }
 
     function applyStartView() {
@@ -58,24 +101,55 @@ window.PanoAdmin = (function () {
     applyStartView();
     updateViewInfo();
 
-    document.getElementById("setStartView").addEventListener("click", function () {
-      var a = window.PanoCore.getViewAngles(camera);
-      vistaInicial = { pitch: round2(a.pitch), yaw: round2(a.yaw), fov: Math.round(camera.fov * 10) / 10 };
+    // Selección por toque: el botón arma el modo y el siguiente toque sobre la imagen define el punto.
+    var picking = null; // "start" | "north" | null
+    var pickStatus = document.getElementById("pickStatus");
+    var pickText = document.getElementById("pickText");
+
+    function beginPick(kind) {
+      picking = kind;
+      pickText.textContent = kind === "start"
+        ? "Toca la imagen en el punto que debe quedar al CENTRO al abrir el panorama. Ajusta antes el zoom: también se guarda."
+        : "Toca la imagen en un punto que esté exactamente hacia el NORTE (usa un mapa o una referencia conocida).";
+      pickStatus.classList.add("active");
+      renderer.domElement.style.cursor = "crosshair";
+    }
+    function endPick() {
+      picking = null;
+      pickStatus.classList.remove("active");
+      renderer.domElement.style.cursor = "";
+    }
+    function finishPick(angles) {
+      var kind = picking;
+      endPick();
+      if (kind === "start") {
+        vistaInicial = { pitch: round2(angles.pitch), yaw: round2(angles.yaw), fov: Math.round(camera.fov * 10) / 10 };
+        applyStartView(); // centra la vista en el punto elegido, para confirmarlo a simple vista
+      } else if (kind === "north") {
+        norteYaw = round2(angles.yaw);
+      }
+      setDirty(true);
       updateViewInfo();
+    }
+
+    document.getElementById("setStartView").addEventListener("click", function () { beginPick("start"); });
+    document.getElementById("setNorth").addEventListener("click", function () { beginPick("north"); });
+    document.getElementById("pickUseCenter").addEventListener("click", function () {
+      if (picking) finishPick(window.PanoCore.getViewAngles(camera)); // alternativa: usar el centro (+) de la pantalla
     });
+    document.getElementById("pickCancel").addEventListener("click", endPick);
     document.getElementById("goStartView").addEventListener("click", applyStartView);
     document.getElementById("clearStartView").addEventListener("click", function () {
-      vistaInicial = null; updateViewInfo();
-    });
-    document.getElementById("setNorth").addEventListener("click", function () {
-      norteYaw = round2(window.PanoCore.getViewAngles(camera).yaw); // el norte es hacia donde apunta la mira central
-      updateViewInfo();
+      vistaInicial = null; setDirty(true); updateViewInfo();
     });
     document.getElementById("clearNorth").addEventListener("click", function () {
-      norteYaw = null; updateViewInfo();
+      norteYaw = null; setDirty(true); updateViewInfo();
     });
 
+    var loadSeq = 0;
     function loadPanorama(id) {
+      var seq = ++loadSeq;
+      endPick();
       loadingEl.classList.remove("hidden");
       panelSub.textContent = "Cargando imagen…";
       if (panoSphere) { scene.remove(panoSphere); panoSphere = null; }
@@ -90,8 +164,10 @@ window.PanoAdmin = (function () {
         panelSub.textContent = 'No se encontró images/' + id + '.webp (puedes seguir dibujando de todas formas).';
       });
 
-      fetch("data/" + id + ".json").then(function (r) { return r.ok ? r.json() : null; })
+      // cache: "no-store" evita ver un JSON viejo (GitHub Pages guarda archivos en caché unos minutos).
+      fetch("data/" + id + ".json", { cache: "no-store" }).then(function (r) { return r.ok ? r.json() : null; })
         .then(function (data) {
+          if (seq !== loadSeq) return;
           savedLots = (data && data.lotes) || [];
           savedPoints = (data && data.puntos) || [];
           document.getElementById("fTitulo").value = (data && data.titulo) || "";
@@ -106,14 +182,18 @@ window.PanoAdmin = (function () {
           renderPoiList();
           rebuildSavedGroup();
           rebuildPoiGroup();
+          setDirty(false);
         }).catch(function () {
+          if (seq !== loadSeq) return;
           savedLots = []; savedPoints = []; vistaInicial = null; norteYaw = null;
-          updateViewInfo(); renderLotList(); renderPoiList();
+          updateViewInfo(); renderLotList(); renderPoiList(); rebuildSavedGroup(); rebuildPoiGroup();
+          setDirty(false);
         });
     }
     loadPanorama(imgId);
 
     document.getElementById("reloadBtn").addEventListener("click", function () {
+      if (dirty && !window.confirm("Hay cambios sin descargar. ¿Cargar otro panorama y descartarlos?")) return;
       imgId = document.getElementById("imgIdInput").value.trim() || "lote-muestra";
       loadPanorama(imgId);
     });
@@ -289,6 +369,7 @@ window.PanoAdmin = (function () {
 
       endLotEditing();
       renderLotList();
+      setDirty(true);
     });
 
     function renderLotList() {
@@ -314,6 +395,7 @@ window.PanoAdmin = (function () {
           savedLots.splice(idx, 1);
           renderLotList();
           rebuildSavedGroup();
+          setDirty(true);
         });
         actions.appendChild(edit); actions.appendChild(del);
         item.appendChild(actions);
@@ -393,6 +475,7 @@ window.PanoAdmin = (function () {
         rebuildPoiGroup();
         renderPoiList();
         resetPoiForm();
+        setDirty(true);
         return;
       }
       if (!poiNombreInput.value.trim()) { alert("Escribe un nombre para el punto."); return; }
@@ -439,10 +522,17 @@ window.PanoAdmin = (function () {
         del.className = "x"; del.textContent = "×"; del.title = "Eliminar punto";
         del.addEventListener("click", function () {
           savedPoints.splice(idx, 1);
+          setDirty(true);
           rebuildPoiGroup();
           renderPoiList();
           if (editingPoiIndex === idx) resetPoiForm();
         });
+        if (poi.tipo === "camara" && poi.destino) {
+          var go = document.createElement("button");
+          go.className = "x"; go.textContent = "↗"; go.title = "Abrir el panorama de destino en el editor";
+          go.addEventListener("click", function () { openDestination(poi.destino); });
+          actions.appendChild(go);
+        }
         actions.appendChild(edit); actions.appendChild(del);
         item.appendChild(actions);
         list.appendChild(item);
@@ -465,6 +555,7 @@ window.PanoAdmin = (function () {
 
     renderer.domElement.addEventListener("pointerdown", function (e) {
       downInfo = { x: e.clientX, y: e.clientY };
+      if (picking) return; // en modo "tocar la imagen" no se arrastran puntos
       var hit = window.PanoCore.pickObject(e.clientX, e.clientY, renderer, camera, raycaster, mouse, draggableTargets());
       if (hit) {
         draggingObject = hit.object;
@@ -491,9 +582,15 @@ window.PanoAdmin = (function () {
 
     renderer.domElement.addEventListener("pointerup", function (e) {
       if (draggingObject) {
+        var obj = draggingObject;
+        var moved = downInfo ? Math.sqrt(Math.pow(e.clientX - downInfo.x, 2) + Math.pow(e.clientY - downInfo.y, 2)) : Infinity;
         draggingObject = null;
         controls.enabled = true;
-        downInfo = null; // fue un arrastre, no debe contarse como tap
+        downInfo = null; // fue un arrastre o un toque sobre un ícono, no un tap sobre el fondo
+        var poiData = obj.userData && obj.userData.poi;
+        if (poiData && moved > TAP_THRESHOLD) setDirty(true); // el ícono se reubicó
+        // Un toque (sin arrastrar) sobre una cámara abre su panorama de destino en el editor.
+        if (poiData && moved <= TAP_THRESHOLD && poiData.tipo === "camara" && poiData.destino) openDestination(poiData.destino);
         return;
       }
       if (!downInfo) return;
@@ -503,6 +600,11 @@ window.PanoAdmin = (function () {
 
       var hit = window.PanoCore.pickObject(e.clientX, e.clientY, renderer, camera, raycaster, mouse, [pickingSphere]);
       if (!hit) return;
+
+      if (picking) {
+        finishPick(window.PanoCore.vectorToPitchYaw(hit.point));
+        return;
+      }
 
       if (active && addingVertices) {
         currentPoints.push(hit.point.clone());
@@ -520,6 +622,7 @@ window.PanoAdmin = (function () {
         };
         if (poi.tipo === "camara") poi.destino = poiDestinoInput.value.trim();
         savedPoints.push(poi);
+        setDirty(true);
         rebuildPoiGroup();
         renderPoiList();
         resetPoiForm();
@@ -544,6 +647,10 @@ window.PanoAdmin = (function () {
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
+      var fileName = a.download;
+      setDirty(false);
+      downloadInfo.className = "sub saved";
+      downloadInfo.textContent = "✔ Descargado " + fileName + ". Súbelo a data/ en el repositorio (reemplaza el anterior) para publicar los cambios.";
     });
 
     (function animate() {

@@ -251,15 +251,47 @@ window.PanoCore = (function () {
     return sprite;
   }
 
+  // Insignia circular con un texto (p. ej. "N"), usada para marcar el norte en el editor.
+  function createBadgeSprite(text, color, pitch, yaw) {
+    var size = 128;
+    var canvas = document.createElement("canvas");
+    canvas.width = canvas.height = size;
+    var ctx = canvas.getContext("2d");
+    ctx.beginPath();
+    ctx.arc(size / 2, size / 2, size / 2 - 8, 0, Math.PI * 2);
+    ctx.fillStyle = color;
+    ctx.fill();
+    ctx.lineWidth = 7;
+    ctx.strokeStyle = "#ffffff";
+    ctx.stroke();
+    ctx.font = "700 " + Math.floor(size * 0.55) + "px 'Segoe UI', Arial, sans-serif";
+    ctx.fillStyle = "#ffffff";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(text, size / 2, size / 2 + 4);
+    var texture = new THREE.CanvasTexture(canvas);
+    var sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: texture, transparent: true, depthTest: false }));
+    sprite.position.copy(pitchYawToVector(pitch, yaw, RADIUS_POLY));
+    sprite.scale.set(30, 30, 1);
+    sprite.renderOrder = 6;
+    return sprite;
+  }
+
   // Convierte una posición de mouse/touch en coordenadas normalizadas y devuelve
   // el primer objeto intersectado de la lista dada.
-  function pickObject(clientX, clientY, renderer, camera, raycaster, mouseVec, objects) {
+  // Si se pasa "prefer" (función), se elige el primer impacto que la cumpla antes que
+  // los demás (p. ej. para que un ícono gane sobre un polígono que está debajo).
+  function pickObject(clientX, clientY, renderer, camera, raycaster, mouseVec, objects, prefer) {
     var rect = renderer.domElement.getBoundingClientRect();
     mouseVec.x = ((clientX - rect.left) / rect.width) * 2 - 1;
     mouseVec.y = -((clientY - rect.top) / rect.height) * 2 + 1;
     raycaster.setFromCamera(mouseVec, camera);
     var hits = raycaster.intersectObjects(objects);
-    return hits.length ? hits[0] : null;
+    if (!hits.length) return null;
+    if (prefer) {
+      for (var i = 0; i < hits.length; i++) if (prefer(hits[i].object)) return hits[i];
+    }
+    return hits[0];
   }
 
   // Proyecta un punto 3D a coordenadas de pantalla (px), relativas al contenedor del renderer.
@@ -291,6 +323,7 @@ window.PanoCore = (function () {
     createPickingSphere: createPickingSphere,
     buildLotVisuals: buildLotVisuals,
     createPoiSprite: createPoiSprite,
+    createBadgeSprite: createBadgeSprite,
     pickObject: pickObject,
     worldToScreen: worldToScreen
   };

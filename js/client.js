@@ -57,7 +57,7 @@ window.PanoClient = (function () {
       errorEl.classList.remove("visible");
 
       // El JSON es opcional: si no existe, se muestra el panorama limpio.
-      var dataPromise = fetch("data/" + id + ".json")
+      var dataPromise = fetch("data/" + id + ".json", { cache: "no-cache" })
         .then(function (r) { return r.ok ? r.json() : {}; })
         .catch(function () { return {}; });
 
@@ -72,7 +72,7 @@ window.PanoClient = (function () {
       }).catch(function () {
         if (token !== loadToken) return;
         loadingEl.classList.add("hidden");
-        var msg = 'No se encontró la imagen "images/' + id + '.webp" en el repositorio.';
+        var msg = 'No se pudo abrir "' + id + '": falta el archivo images/' + id + '.webp en el repositorio (revisa el nombre del destino, distingue mayúsculas).';
         if (currentId === null) {
           errorMsg.textContent = msg;
           errorEl.classList.add("visible");
@@ -125,7 +125,7 @@ window.PanoClient = (function () {
       toastEl.textContent = msg;
       toastEl.classList.add("visible");
       clearTimeout(toastTimer);
-      toastTimer = setTimeout(function () { toastEl.classList.remove("visible"); }, 3800);
+      toastTimer = setTimeout(function () { toastEl.classList.remove("visible"); }, 6500);
     }
 
     // Botón "atrás" / "adelante" del navegador entre panoramas visitados.
@@ -138,6 +138,12 @@ window.PanoClient = (function () {
     var raycaster = new THREE.Raycaster();
     var mouse = new THREE.Vector2();
     var hovered = null;
+
+    function isPoi(obj) { return !!obj.userData.poi; }
+    // Íconos y polígonos comparten el mismo radio: si se superponen, gana el ícono.
+    function pickInteractive(e) {
+      return window.PanoCore.pickObject(e.clientX, e.clientY, renderer, camera, raycaster, mouse, interactive, isPoi);
+    }
 
     function isCameraLink(obj) {
       var poi = obj && obj.userData.poi;
@@ -168,7 +174,7 @@ window.PanoClient = (function () {
     }
 
     renderer.domElement.addEventListener("mousemove", function (e) {
-      var hit = window.PanoCore.pickObject(e.clientX, e.clientY, renderer, camera, raycaster, mouse, interactive);
+      var hit = pickInteractive(e);
       setHover(hit ? hit.object : null);
       if (tooltipEl.classList.contains("visible")) {
         tooltipEl.style.left = (e.clientX + 16) + "px";
@@ -186,7 +192,7 @@ window.PanoClient = (function () {
       var dx = e.clientX - downPos.x, dy = e.clientY - downPos.y;
       downPos = null;
       if (Math.sqrt(dx * dx + dy * dy) > TAP_THRESHOLD) return;
-      var hit = window.PanoCore.pickObject(e.clientX, e.clientY, renderer, camera, raycaster, mouse, interactive);
+      var hit = pickInteractive(e);
       if (!hit) return;
       if (isCameraLink(hit.object)) {
         loadScene(hit.object.userData.poi.destino, true); // navegar a otro panorama, sin recargar
@@ -262,11 +268,19 @@ window.PanoClient = (function () {
     popupHeader.addEventListener("pointercancel", stopDragPopup);
 
     // ---------- Botón de pantalla completa ----------
-    document.getElementById("fullscreenBtn").addEventListener("click", function () {
-      if (!document.fullscreenElement) {
-        (document.documentElement.requestFullscreen || function () {}).call(document.documentElement);
-      } else {
-        (document.exitFullscreen || function () {}).call(document);
+    // Safari en iPhone no permite pantalla completa en páginas web: ahí el botón se oculta.
+    var fsBtn = document.getElementById("fullscreenBtn");
+    var rootEl = document.documentElement;
+    var fsEnter = rootEl.requestFullscreen || rootEl.webkitRequestFullscreen;
+    var fsExit = document.exitFullscreen || document.webkitExitFullscreen;
+    function fsActive() { return !!(document.fullscreenElement || document.webkitFullscreenElement); }
+    if (!fsEnter) fsBtn.hidden = true;
+    fsBtn.addEventListener("click", function () {
+      if (!fsActive()) {
+        var res = fsEnter.call(rootEl);
+        if (res && res.catch) res.catch(function () { showToast("No se pudo activar la pantalla completa en este dispositivo."); });
+      } else if (fsExit) {
+        fsExit.call(document);
       }
     });
 
