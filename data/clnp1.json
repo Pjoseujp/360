@@ -1,4 +1,5 @@
 {
+  "titulo": "VISUALIZADOR 360°",
   "vista": {
     "pitch": -47.34,
     "yaw": 129.09,
@@ -51,8 +52,8 @@
       "tipo": "camara",
       "nombre": "Vista desde la carretera",
       "descripcion": "",
-      "pitch": -27.93,
-      "yaw": 128.75,
+      "pitch": -23.72,
+      "yaw": 128,
       "destino": "clnp2"
     }
   ]
