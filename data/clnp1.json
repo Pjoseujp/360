@@ -1,4 +1,10 @@
 {
+  "vista": {
+    "pitch": -47.34,
+    "yaw": 129.09,
+    "fov": 52.7
+  },
+  "norte": 82.07,
   "lotes": [
     {
       "id": "lote-1",
@@ -42,11 +48,12 @@
   "puntos": [
     {
       "id": "poi-1",
-      "tipo": "visor",
-      "nombre": "mapa2",
+      "tipo": "camara",
+      "nombre": "Vista desde la carretera",
       "descripcion": "",
-      "pitch": -32.71,
-      "yaw": 127.06
+      "pitch": -27.93,
+      "yaw": 128.75,
+      "destino": "clnp2"
     }
   ]
 }
