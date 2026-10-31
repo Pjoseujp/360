@@ -154,12 +154,12 @@ button.primary:hover{ background:var(--verde-hover); }
 button.danger{ background:rgba(220,80,80,.15); border-color:rgba(220,80,80,.4); }
 button:disabled{ opacity:.4; cursor:not-allowed; }
 
-#drawStatus, #poiStatus{
+#drawStatus, #poiStatus, #pickStatus{
   font-size:12px; padding:9px 10px; border-radius:8px;
   background:rgba(46,204,113,.12); border:1px solid rgba(46,204,113,.3);
   display:none;
 }
-#drawStatus.active, #poiStatus.active{ display:block; }
+#drawStatus.active, #poiStatus.active, #pickStatus.active{ display:block; }
 
 .row{ display:flex; gap:8px; }
 .row button{ flex:1; }
@@ -223,3 +223,7 @@ body.mode-admin #crosshair::before,
 body.mode-admin #crosshair::after{ content:""; position:absolute; background:#fff; }
 body.mode-admin #crosshair::before{ left:12px; top:0; width:2px; height:26px; }
 body.mode-admin #crosshair::after{ top:12px; left:0; height:2px; width:26px; }
+
+/* ---------- Aviso de cambios sin descargar (admin) ---------- */
+#downloadInfo.dirty{ color:#ffd479; opacity:1; }
+#downloadInfo.saved{ color:var(--verde-hover); opacity:1; }
