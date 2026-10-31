@@ -26,18 +26,24 @@ body.mode-admin #popup,
 body.mode-admin #popup-line-svg{ display:none; }
 
 #hud{
-  position:fixed; top:0; left:0; right:0;
-  display:flex; align-items:center; justify-content:space-between;
-  padding:16px 20px;
-  background:linear-gradient(to bottom, rgba(0,0,0,.55), transparent);
+  position:fixed; top:0; left:0; right:0; height:104px;
+  background:linear-gradient(to bottom, rgba(0,0,0,.5), transparent);
+  pointer-events:none; /* la franja superior no debe bloquear arrastres ni toques sobre la imagen */
   z-index:5;
 }
 #hud h1{
-  margin:0; font-size:16px; font-weight:600; letter-spacing:.04em;
-  text-transform:uppercase; opacity:.85; pointer-events:none;
+  position:absolute; margin:0;
+  top:calc(54px + env(safe-area-inset-top, 0px));          /* debajo de la brújula */
+  left:calc(20px + env(safe-area-inset-left, 0px));        /* siempre arriba a la izquierda */
+  max-width:calc(100vw - 110px);
+  font-size:16px; font-weight:600; letter-spacing:.04em;
+  text-transform:uppercase; opacity:.9; text-shadow:0 1px 4px rgba(0,0,0,.75);
 }
+body.hide-title #hud-title{ display:none; }
 #fullscreenBtn{
-  pointer-events:auto;
+  position:absolute; pointer-events:auto;
+  top:calc(16px + env(safe-area-inset-top, 0px));
+  right:calc(20px + env(safe-area-inset-right, 0px));
   width:38px; height:38px; border-radius:50%;
   border:1px solid rgba(255,255,255,.25); background:rgba(0,0,0,.35);
   color:var(--texto); font-size:17px; cursor:pointer;
@@ -198,8 +204,8 @@ body.mode-admin #toast, body.mode-admin #tooltip{ display:none; }
 /* ---------- Brújula tipo cinta ---------- */
 #compass{
   display:none; position:fixed; z-index:6; pointer-events:none;
-  top:58px; left:0; right:0; margin:0 auto;
-  width:min(560px, calc(100vw - 24px)); height:56px;
+  top:calc(4px + env(safe-area-inset-top, 0px)); left:0; right:0; margin:0 auto;
+  width:min(560px, calc(100vw - 150px)); height:42px;   /* deja libre el botón de pantalla completa */
   background:linear-gradient(to bottom, rgba(0,0,0,.38), rgba(0,0,0,0));
   -webkit-mask-image:linear-gradient(to right, transparent, #000 16%, #000 84%, transparent);
           mask-image:linear-gradient(to right, transparent, #000 16%, #000 84%, transparent);
@@ -207,7 +213,7 @@ body.mode-admin #toast, body.mode-admin #tooltip{ display:none; }
 #compass.visible{ display:block; }
 #compass canvas{ width:100%; height:100%; display:block; }
 body.mode-admin #compass{
-  top:12px; right:var(--panel-width);
+  right:var(--panel-width);
   width:min(560px, calc(100vw - var(--panel-width) - 24px));
 }
 
@@ -227,3 +233,64 @@ body.mode-admin #crosshair::after{ top:12px; left:0; height:2px; width:26px; }
 /* ---------- Aviso de cambios sin descargar (admin) ---------- */
 #downloadInfo.dirty{ color:#ffd479; opacity:1; }
 #downloadInfo.saved{ color:var(--verde-hover); opacity:1; }
+
+/* ---------- Menú de opciones (cliente): esquina inferior derecha ---------- */
+#menu{
+  position:fixed; z-index:15;
+  right:calc(20px + env(safe-area-inset-right, 0px));
+  bottom:calc(20px + env(safe-area-inset-bottom, 0px));
+  display:flex; flex-direction:column; align-items:flex-end; gap:10px;
+}
+body.mode-admin #menu{ display:none; }
+#menuBtn{
+  width:44px; height:44px; padding:0; border-radius:50%;
+  border:1px solid rgba(255,255,255,.25); background:rgba(0,0,0,.45);
+  color:var(--texto); cursor:pointer;
+  display:flex; align-items:center; justify-content:center;
+  backdrop-filter:blur(6px);
+}
+#menuBtn:hover, #menu.open #menuBtn{ background:rgba(255,255,255,.2); }
+#menuPanel{
+  width:min(270px, calc(100vw - 40px));
+  background:var(--panel-bg); backdrop-filter:blur(10px);
+  border:1px solid var(--borde); border-radius:14px;
+  padding:10px 8px 8px; box-shadow:0 14px 40px rgba(0,0,0,.45);
+  opacity:0; pointer-events:none; transform:translateY(8px) scale(.98); transform-origin:bottom right;
+  transition:opacity .15s ease, transform .15s ease;
+}
+#menu.open #menuPanel{ opacity:1; pointer-events:auto; transform:none; }
+.menu-title{
+  margin:0 8px 6px; font-size:10.5px; text-transform:uppercase;
+  letter-spacing:.12em; color:var(--verde-hover); font-weight:600;
+}
+.menu-item{
+  position:relative; display:flex; align-items:center; justify-content:space-between; gap:12px;
+  padding:9px 8px; border-radius:8px; cursor:pointer; font-size:13.5px;
+}
+.menu-item:hover{ background:rgba(255,255,255,.07); }
+.menu-item input{ position:absolute; opacity:0; width:0; height:0; }
+.switch{
+  flex:none; width:36px; height:20px; border-radius:10px; position:relative;
+  background:rgba(255,255,255,.22); transition:background .15s ease;
+}
+.switch::after{
+  content:""; position:absolute; top:2px; left:2px; width:16px; height:16px; border-radius:50%;
+  background:#fff; transition:transform .15s ease;
+}
+.menu-item input:checked ~ .switch{ background:var(--verde); }
+.menu-item input:checked ~ .switch::after{ transform:translateX(16px); }
+.menu-item input:focus-visible ~ .switch{ outline:2px solid #fff; outline-offset:2px; }
+.menu-item input:disabled ~ *{ opacity:.4; }
+.menu-item:has(input:disabled){ cursor:not-allowed; }
+
+/* ---------- Íconos animados de cámara (WebP) sobre el panorama: modo cliente ---------- */
+#overlay-icons{ position:fixed; inset:0; overflow:hidden; pointer-events:none; z-index:4; }
+body.mode-admin #overlay-icons{ display:none; }
+.cam-icon{ position:absolute; left:0; top:0; will-change:transform; }
+.cam-icon.behind{ display:none; }
+.cam-icon img{
+  display:block; width:100%; height:100%; object-fit:contain;
+  transition:transform .12s ease; filter:drop-shadow(0 2px 4px rgba(0,0,0,.45));
+  user-select:none; -webkit-user-drag:none;
+}
+.cam-icon.hover img{ transform:scale(1.18); }
