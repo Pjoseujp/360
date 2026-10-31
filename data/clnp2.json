@@ -1,4 +1,10 @@
 {
+  "vista": {
+    "pitch": -30.59,
+    "yaw": -48.11,
+    "fov": 91.5
+  },
+  "norte": 98.16,
   "lotes": [
     {
       "id": "lote-1",
@@ -39,5 +45,15 @@
       ]
     }
   ],
-  "puntos": []
+  "puntos": [
+    {
+      "id": "poi-1",
+      "tipo": "camara",
+      "nombre": "Vista aerea",
+      "descripcion": "",
+      "pitch": 36.12,
+      "yaw": -55.58,
+      "destino": "clnp1"
+    }
+  ]
 }
