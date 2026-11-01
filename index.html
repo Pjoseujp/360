@@ -34,9 +34,31 @@
       <p id="popup-eyebrow">Lote</p>
       <h2 id="popup-title"></h2>
     </div>
-    <p id="popup-area"></p>
-    <p id="popup-desc"></p>
-    <ul id="popup-caract"></ul>
+    <div id="popup-body">
+      <div id="popup-info">
+        <p id="popup-area"></p>
+        <p id="popup-desc"></p>
+        <ul id="popup-caract"></ul>
+      </div>
+      <div id="popup-plano-col" hidden>
+        <button type="button" id="popup-plano-btn" aria-label="Ver el plano ampliado" hidden>
+          <img id="popup-plano-img" alt="Plano del lote">
+          <span>🔍 Ampliar plano</span>
+        </button>
+        <a id="popup-plano-pdf" target="_blank" rel="noopener" hidden>📄 Plano en PDF</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- Visor ampliado del plano -->
+  <div id="lightbox" role="dialog" aria-modal="true" aria-label="Plano del lote">
+    <div id="lightbox-bar">
+      <span id="lightbox-title"></span>
+      <a id="lightbox-open" target="_blank" rel="noopener">Abrir en pestaña nueva</a>
+      <a id="lightbox-pdf" target="_blank" rel="noopener" hidden>PDF</a>
+      <button type="button" id="lightbox-close" aria-label="Cerrar">&times;</button>
+    </div>
+    <div id="lightbox-stage"><img id="lightbox-img" alt="Plano del lote"></div>
   </div>
 
   <!-- ===== Modo administrador ===== -->
@@ -102,6 +124,15 @@
       <label>Características (separadas por coma)</label>
       <input type="text" id="fCaract" placeholder="Acceso pavimentado, Vista al lago">
     </div>
+    <div class="field">
+      <label>Plano del lote (archivo en planos/)</label>
+      <input type="text" id="fPlano" placeholder="ej. lote1.png">
+      <p class="sub" id="fPlanoInfo"></p>
+    </div>
+    <div class="field">
+      <label>Plano en PDF (opcional)</label>
+      <input type="text" id="fPlanoPdf" placeholder="ej. lote1.pdf">
+    </div>
     <button id="addLotBtn" class="primary" disabled>Agregar lote a la lista</button>
 
     <hr>
@@ -162,6 +193,7 @@
       <p class="menu-title">Mostrar</p>
       <label class="menu-item"><input type="checkbox" id="optTitle" checked><span class="menu-text">Título</span><span class="switch"></span></label>
       <label class="menu-item"><input type="checkbox" id="optCompass" checked><span class="menu-text">Brújula</span><span class="switch"></span></label>
+      <label class="menu-item"><input type="checkbox" id="optLots" checked><span class="menu-text">Lotes (resaltado)</span><span class="switch"></span></label>
       <label class="menu-item"><input type="checkbox" id="optPoi" checked><span class="menu-text">Puntos de interés</span><span class="switch"></span></label>
       <label class="menu-item"><input type="checkbox" id="optCam" checked><span class="menu-text">Cámaras (enlaces a otros 360)</span><span class="switch"></span></label>
     </div>
