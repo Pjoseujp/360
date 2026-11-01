@@ -276,6 +276,31 @@ window.PanoAdmin = (function () {
       drawStatus.classList.remove("active");
     }
 
+    // ---------- Plano del lote: comprobar que el archivo exista ----------
+    var fPlano = document.getElementById("fPlano");
+    var fPlanoPdf = document.getElementById("fPlanoPdf");
+    var fPlanoInfo = document.getElementById("fPlanoInfo");
+    var planoProbeSeq = 0;
+    function checkPlano() {
+      var raw = fPlano.value.trim();
+      var seq = ++planoProbeSeq;
+      if (!raw) { fPlanoInfo.textContent = ""; return; }
+      var url = window.PanoCore.planoUrl(raw);
+      if (!url) { fPlanoInfo.textContent = "✖ Ruta no válida."; return; }
+      if (/\.pdf([?#]|$)/i.test(url)) {
+        fPlanoInfo.textContent = "ℹ Un PDF no se puede mostrar como imagen: ponlo en «Plano en PDF» y aquí una imagen (PNG, WebP, JPG o SVG).";
+        return;
+      }
+      fPlanoInfo.textContent = "Comprobando…";
+      var im = new Image();
+      im.onload = function () { if (seq === planoProbeSeq) fPlanoInfo.textContent = "✔ Se encontró " + url; };
+      im.onerror = function () {
+        if (seq === planoProbeSeq) fPlanoInfo.textContent = "✖ No se encontró " + url + " (¿ya la subiste al repositorio?)";
+      };
+      im.src = url + (url.indexOf("?") === -1 ? "?" : "&") + "_=" + Date.now(); // evita una respuesta vieja de la caché
+    }
+    fPlano.addEventListener("change", checkPlano);
+
     function beginNewLot() {
       if (active) return;
       active = true; addingVertices = true; editingIndex = null;
@@ -284,6 +309,7 @@ window.PanoAdmin = (function () {
       document.getElementById("fArea").value = "";
       document.getElementById("fDesc").value = "";
       document.getElementById("fCaract").value = "";
+      fPlano.value = ""; fPlanoPdf.value = ""; checkPlano();
       drawStatus.classList.add("active");
       startDrawBtn.disabled = true;
       undoPointBtn.disabled = true;
@@ -307,6 +333,7 @@ window.PanoAdmin = (function () {
       document.getElementById("fArea").value = lot.area || "";
       document.getElementById("fDesc").value = lot.descripcion || "";
       document.getElementById("fCaract").value = (lot.caracteristicas || []).join(", ");
+      fPlano.value = lot.plano || ""; fPlanoPdf.value = lot.planoPdf || ""; checkPlano();
       drawStatus.classList.add("active");
       startDrawBtn.disabled = true;
       undoPointBtn.disabled = currentPoints.length === 0;
@@ -363,6 +390,9 @@ window.PanoAdmin = (function () {
         color: "#2ecc71",
         poligono: poligono
       };
+      var planoVal = fPlano.value.trim(), planoPdfVal = fPlanoPdf.value.trim();
+      if (planoVal) lotData.plano = planoVal;         // imagen que se muestra junto a la información
+      if (planoPdfVal) lotData.planoPdf = planoPdfVal; // PDF opcional (enlace)
 
       if (editingIndex !== null) { savedLots[editingIndex] = lotData; }
       else { savedLots.push(lotData); }
@@ -382,7 +412,7 @@ window.PanoAdmin = (function () {
       savedLots.forEach(function (lot, idx) {
         var item = document.createElement("div");
         item.className = "lot-item";
-        item.innerHTML = "<div>" + esc(lot.nombre) + "<br><span>" + lot.poligono.length + " vértices · " + esc(lot.area || "sin área") + "</span></div>";
+        item.innerHTML = "<div>" + esc(lot.nombre) + "<br><span>" + lot.poligono.length + " vértices · " + esc(lot.area || "sin área") + (lot.plano || lot.planoPdf ? " · 🗺 plano" : "") + "</span></div>";
         var actions = document.createElement("div");
         actions.style.display = "flex";
         var edit = document.createElement("button");

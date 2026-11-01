@@ -217,6 +217,7 @@ window.PanoCore = (function () {
     var outlineMat = new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.9 });
     var outline = new THREE.LineLoop(outlineGeo, outlineMat);
 
+    fillMesh.userData.outline = outline; // para poder ocultar/mostrar el contorno junto con el relleno
     return { fillMesh: fillMesh, outline: outline, centroid: centroid };
   }
 
@@ -337,6 +338,18 @@ window.PanoCore = (function () {
     return sprite;
   }
 
+  // Ruta de un plano (imagen o PDF) a partir del valor escrito en el JSON:
+  //  - un nombre simple ("lote1.png") se busca en la carpeta planos/
+  //  - una ruta ("otra/carpeta/x.png") o una URL http(s) se usa tal cual
+  //  - se rechazan esquemas peligrosos (javascript:, data:, vbscript:)
+  function planoUrl(v) {
+    if (v == null) return null;
+    v = String(v).trim();
+    if (!v || /^(javascript|data|vbscript):/i.test(v)) return null;
+    if (/^(https?:)?\/\//i.test(v) || v.indexOf("/") !== -1) return v;
+    return "planos/" + v;
+  }
+
   // Convierte una posición de mouse/touch en coordenadas normalizadas y devuelve
   // el primer objeto intersectado de la lista dada.
   // Si se pasa "prefer" (función), se elige el primer impacto que la cumpla antes que
@@ -384,6 +397,7 @@ window.PanoCore = (function () {
     buildLotVisuals: buildLotVisuals,
     createPoiSprite: createPoiSprite,
     loadIcon: loadIcon,
+    planoUrl: planoUrl,
     POI_SIZE: POI_SIZE,
     createBadgeSprite: createBadgeSprite,
     pickObject: pickObject,

@@ -269,6 +269,7 @@ window.PanoClient = (function () {
         list.appendChild(li);
       });
 
+      setupPlano(info);
       stopDragPopup();
       openTarget = obj;
       popup.classList.remove("dragged");
@@ -313,6 +314,62 @@ window.PanoClient = (function () {
     popupHeader.addEventListener("pointerup", stopDragPopup);
     popupHeader.addEventListener("pointercancel", stopDragPopup);
 
+    // ---------- Plano del lote (a la derecha de la información) ----------
+    var planoCol = document.getElementById("popup-plano-col");
+    var planoBtn = document.getElementById("popup-plano-btn");
+    var planoImg = document.getElementById("popup-plano-img");
+    var planoPdfLink = document.getElementById("popup-plano-pdf");
+    var currentPlano = null; // {img, pdf, title} del popup abierto
+
+    // Muestra la columna del plano solo si hay algo que mostrar (y ensancha el popup).
+    function refreshPlanoCol() {
+      var any = !planoBtn.hidden || !planoPdfLink.hidden;
+      planoCol.hidden = !any;
+      if (any) popup.classList.add("has-plano"); else popup.classList.remove("has-plano");
+    }
+
+    function setupPlano(info) {
+      var img = window.PanoCore.planoUrl(info.plano);
+      var pdf = window.PanoCore.planoUrl(info.planoPdf);
+      // Un PDF escrito en "plano" no se puede mostrar como imagen: se ofrece como enlace.
+      if (img && /\.pdf([?#]|$)/i.test(img)) { pdf = pdf || img; img = null; }
+      var mine = { img: img, pdf: pdf, title: info.nombre || "Lote" };
+      currentPlano = mine;
+
+      planoImg.onerror = function () {   // archivo inexistente: se oculta sin romper el popup
+        if (currentPlano !== mine) return;
+        planoBtn.hidden = true; mine.img = null; refreshPlanoCol();
+      };
+      planoImg.removeAttribute("src");
+      planoBtn.hidden = !img;
+      if (img) planoImg.src = img;       // la imagen se descarga solo cuando se abre el popup
+      planoPdfLink.hidden = !pdf;
+      if (pdf) planoPdfLink.href = pdf;
+      refreshPlanoCol();
+    }
+
+    var lightbox = document.getElementById("lightbox");
+    var lbImg = document.getElementById("lightbox-img");
+    var lbPdf = document.getElementById("lightbox-pdf");
+    function openLightbox() {
+      if (!currentPlano || !currentPlano.img) return;
+      lbImg.src = currentPlano.img;
+      document.getElementById("lightbox-title").textContent = "Plano · " + currentPlano.title;
+      document.getElementById("lightbox-open").href = currentPlano.img;
+      lbPdf.hidden = !currentPlano.pdf;
+      if (currentPlano.pdf) lbPdf.href = currentPlano.pdf;
+      lightbox.classList.add("open");
+    }
+    function closeLightbox() {
+      lightbox.classList.remove("open");
+      lbImg.removeAttribute("src");
+    }
+    planoBtn.addEventListener("click", openLightbox);
+    document.getElementById("lightbox-close").addEventListener("click", closeLightbox);
+    lightbox.addEventListener("click", function (e) {
+      if (e.target === lightbox || e.target === document.getElementById("lightbox-stage")) closeLightbox();
+    });
+
     // ---------- Botón de pantalla completa ----------
     // Safari en iPhone no permite pantalla completa en páginas web: ahí el botón se oculta.
     var fsBtn = document.getElementById("fullscreenBtn");
@@ -333,10 +390,11 @@ window.PanoClient = (function () {
     // ---------- Menú de opciones: mostrar/ocultar por separado ----------
     // Cámaras (enlaces) y puntos de interés se controlan por separado, para poder ocultar
     // los puntos de interés sin perder los enlaces a otros panoramas.
-    var opts = { title: true, compass: true, poi: true, cam: true };
+    var opts = { title: true, compass: true, lots: true, poi: true, cam: true };
     var optInputs = {
       title: document.getElementById("optTitle"),
       compass: document.getElementById("optCompass"),
+      lots: document.getElementById("optLots"),
       poi: document.getElementById("optPoi"),
       cam: document.getElementById("optCam")
     };
@@ -350,6 +408,7 @@ window.PanoClient = (function () {
 
     // Las opciones sin nada que mostrar en este panorama quedan deshabilitadas (conservan su valor).
     function updateMenuAvailability() {
+      optInputs.lots.disabled = !interactive.some(function (o) { return !!o.userData.lot; });
       optInputs.poi.disabled = !hasPois(false);
       optInputs.cam.disabled = !hasPois(true);
       optInputs.compass.disabled = northYaw === null;
@@ -361,6 +420,10 @@ window.PanoClient = (function () {
         if (p) {
           o.visible = (p.tipo === "camara") ? opts.cam : opts.poi;
           if (o.userData.overlayEl) o.userData.overlayEl.hidden = !o.visible;
+        } else if (o.userData.lot) {
+          // Ocultar el resaltado también deja de hacer tocable el lote (relleno y contorno)
+          o.visible = opts.lots;
+          if (o.userData.outline) o.userData.outline.visible = opts.lots;
         }
       });
       compass.setVisible(opts.compass && northYaw !== null);
@@ -386,7 +449,10 @@ window.PanoClient = (function () {
     document.addEventListener("pointerdown", function (e) {
       if (menuEl.classList.contains("open") && !menuEl.contains(e.target)) setMenuOpen(false);
     });
-    document.addEventListener("keydown", function (e) { if (e.key === "Escape") setMenuOpen(false); });
+    document.addEventListener("keydown", function (e) {
+      if (e.key !== "Escape") return;
+      if (lightbox.classList.contains("open")) closeLightbox(); else setMenuOpen(false);
+    });
 
     // ---------- Loop de render ----------
     (function animate() {
