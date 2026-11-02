@@ -1,0 +1,61 @@
+{
+  "titulo": "VISUALIZADOR 360°",
+  "vista": {
+    "pitch": -30.59,
+    "yaw": -48.11,
+    "fov": 91.5
+  },
+  "norte": 98.16,
+  "lotes": [
+    {
+      "id": "lote-1",
+      "nombre": "Propiedad 1",
+      "area": "2,156.49 m2",
+      "descripcion": "",
+      "caracteristicas": [],
+      "color": "#2ecc71",
+      "poligono": [
+        {
+          "pitch": -68.02,
+          "yaw": 0.89
+        },
+        {
+          "pitch": -28.41,
+          "yaw": -44.1
+        },
+        {
+          "pitch": -29.58,
+          "yaw": -53.26
+        },
+        {
+          "pitch": -42.09,
+          "yaw": -56.83
+        },
+        {
+          "pitch": -52.67,
+          "yaw": -75.79
+        },
+        {
+          "pitch": -57.62,
+          "yaw": -66.54
+        },
+        {
+          "pitch": -66.09,
+          "yaw": -39.72
+        }
+      ],
+      "plano": "cristalinas.png"
+    }
+  ],
+  "puntos": [
+    {
+      "id": "poi-1",
+      "tipo": "camara",
+      "nombre": "Vista aerea",
+      "descripcion": "",
+      "pitch": 30.34,
+      "yaw": -54.5,
+      "destino": "clnp1"
+    }
+  ]
+}

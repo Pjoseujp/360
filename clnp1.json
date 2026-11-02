@@ -1,0 +1,61 @@
+{
+  "titulo": "VISUALIZADOR 360°",
+  "vista": {
+    "pitch": -47.34,
+    "yaw": 129.09,
+    "fov": 52.7
+  },
+  "norte": 82.07,
+  "lotes": [
+    {
+      "id": "lote-1",
+      "nombre": "Propiedad 1",
+      "area": "2,156.49 m2",
+      "descripcion": "",
+      "caracteristicas": [],
+      "color": "#2ecc71",
+      "poligono": [
+        {
+          "pitch": -40.99,
+          "yaw": 125.76
+        },
+        {
+          "pitch": -65.25,
+          "yaw": 131.12
+        },
+        {
+          "pitch": -63.02,
+          "yaw": 142.02
+        },
+        {
+          "pitch": -50.41,
+          "yaw": 135.5
+        },
+        {
+          "pitch": -42.77,
+          "yaw": 135.52
+        },
+        {
+          "pitch": -42.62,
+          "yaw": 133.29
+        },
+        {
+          "pitch": -41.86,
+          "yaw": 129.47
+        }
+      ],
+      "plano": "cristalinas.png"
+    }
+  ],
+  "puntos": [
+    {
+      "id": "poi-1",
+      "tipo": "camara",
+      "nombre": "Vista desde la carretera",
+      "descripcion": "",
+      "pitch": -23.72,
+      "yaw": 128,
+      "destino": "clnp2"
+    }
+  ]
+}
